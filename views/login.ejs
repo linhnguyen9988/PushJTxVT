@@ -1,0 +1,41 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+    <div class="col-md-4">
+        <div class="card shadow p-4 border-0">
+            <h3 class="text-center mb-4">Đăng nhập</h3>
+            <%- include('partials/messages') %>
+
+            <form action="/login" method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Tên đăng nhập</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mật khẩu</label>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+                <div class="mb-3 d-flex justify-content-between">
+                    <div class="form-check">
+                        <input type="checkbox" name="rememberMe" class="form-check-input" id="rem">
+                        <label class="form-check-label" for="rem">Ghi nhớ</label>
+                    </div>
+                    <a href="#" data-bs-toggle="modal" data-bs-target="#forgotModal" class="small">Quên mật khẩu?</a>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Vào hệ thống</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="forgotModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header"><h5>Quên mật khẩu?</h5></div>
+            <div class="modal-body">Vui lòng liên hệ Admin để đặt lại mật khẩu của bạn.</div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button></div>
+        </div>
+    </div>
+</div>
+
+<%- include('partials/footer', { active: 'orders' }) %>

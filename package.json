@@ -1,0 +1,37 @@
+{
+  "name": "pushjtxvt",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
+    "body-parser": "^2.2.1",
+    "bwip-js": "^4.8.0",
+    "chart.js": "^4.5.1",
+    "connect-flash": "^0.1.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "ejs": "^3.1.10",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "express-session": "^1.18.2",
+    "html-pdf-node": "^1.0.8",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.0.2",
+    "mysql2": "^3.16.0",
+    "nodemailer": "^7.0.12",
+    "pdfkit": "^0.18.0",
+    "qrcode": "^1.5.4",
+    "request": "^2.88.2",
+    "socket.io": "^4.8.3",
+    "speakeasy": "^2.0.0"
+  },
+  "description": ""
+}

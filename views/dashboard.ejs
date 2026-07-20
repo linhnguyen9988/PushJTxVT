@@ -1,0 +1,202 @@
+<%- include('partials/header') %>
+
+    <div class="container py-4">
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 h-100" style="border-left: 5px solid #0d6efd !important;">
+                    <div class="card-label text-uppercase fw-bold text-muted small">Tổng số đơn hàng</div>
+                    <div class="h2 fw-bold mb-0 mt-1">
+                        <%= stats.total || 0 %>
+                    </div>
+                    <small class="text-muted mt-2"><i class="fas fa-box me-1"></i> Tất cả thời gian</small>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 h-100" style="border-left: 5px solid #6f42c1 !important;">
+                    <div class="card-label text-uppercase fw-bold text-muted small">Doanh thu tháng này</div>
+                    <div class="h2 fw-bold mb-0 mt-1 text-primary">
+                        <%= Number(stats.revenue || 0).toLocaleString() %> <small style="font-size: 14px;">đ</small>
+                    </div>
+                    <small class="text-muted mt-2"><i class="fas fa-hand-holding-usd me-1"></i> Tổng tiền COD</small>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 h-100" style="border-left: 5px solid #28a745 !important;">
+                    <div class="card-label text-uppercase fw-bold text-muted small">Thực nhận dự tính</div>
+                    <div class="h2 fw-bold mb-0 mt-1 text-success">
+                        <%= Number(stats.net_revenue || 0).toLocaleString() %> <small style="font-size: 14px;">đ</small>
+                    </div>
+                    <small class="text-muted mt-2"><i class="fas fa-wallet me-1"></i> Sau khi trừ phí cước</small>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm p-3 h-100" style="border-left: 5px solid #ffc107 !important;">
+                    <div class="card-label text-uppercase fw-bold text-muted small">Tỷ lệ giao hàng</div>
+                    <div class="h2 fw-bold mb-0 mt-1">
+                        <%= stats.total> 0 ? ((stats.success / stats.total) * 100).toFixed(1) : '0.0' %>%
+                    </div>
+                    <small class="text-muted mt-2"><i class="fas fa-truck-check me-1"></i> Thành công / Tổng đơn</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8 mb-4">
+                <div class="card border-0 shadow-sm p-4 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Đơn hàng 7 ngày gần
+                            nhất</h5>
+                    </div>
+                    <div style="position: relative; height: 320px;">
+                        <canvas id="orderChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4 mb-4">
+                <div class="card border-0 shadow-sm p-4 h-100">
+                    <h5 class="fw-bold mb-4"><i class="fas fa-history me-2 text-primary"></i>Đơn hàng gần đây</h5>
+
+                    <% if (stats.recentOrders && stats.recentOrders.length> 0) { %>
+                        <div class="list-group list-group-flush">
+                            <% stats.recentOrders.forEach(order=> { %>
+                                <div class="list-group-item px-0 border-0 mb-3 pb-3 border-bottom">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div style="max-width: 60%;">
+                                            <h6 class="mb-0 fw-bold text-truncate">
+                                                <%= order.customer_name %>
+                                            </h6>
+                                            <small class="text-muted font-monospace d-flex align-items-center mt-1">
+                                                <img src="/img/<%= order.provider === 'Viettel' ? 'viettel.png' : 'jte.png' %>"
+                                                    alt="<%= order.provider %>" style="width: 35px;" class="me-1">
+                                                <%= order.order_code %>
+                                            </small>
+                                            <div class="mt-1">
+                                                <small class="text-muted" style="font-size: 0.75rem;">
+                                                    <i class="far fa-clock me-1"></i>
+                                                    <%= new Date(order.created_at).toLocaleString('vi-VN', {
+                                                        hour: '2-digit' , minute: '2-digit' , day: '2-digit' ,
+                                                        month: '2-digit' , year: 'numeric' }).replace(',', ' -' ) %>
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <div class="fw-bold text-dark mb-0">
+                                                <%= (Number(order.price) || 0).toLocaleString() %> <small
+                                                        class="fw-normal">đ</small>
+                                            </div>
+
+                                            <div class="text-danger mb-1" style="font-size: 0.75rem;">
+                                                <i class="fas fa-truck me-1"></i><%= (Number(order.internal_fee) ||
+                                                    0).toLocaleString() %> đ
+                                            </div>
+
+                                            <% let badgeClass='bg-secondary' ; let statusText=order.status; let
+                                                s=order.status ? order.status.toLowerCase() : '' ; if (s==='success' ||
+                                                s==='delivered' ) {
+                                                badgeClass='bg-success-subtle text-success border border-success' ;
+                                                statusText='Thành công' ; } else if (s==='pending' || s==='waiting' ) {
+                                                badgeClass='bg-warning-subtle text-warning-emphasis border border-warning'
+                                                ; statusText='Chờ lấy' ; } else if (s==='shipping' || s==='delivering' )
+                                                { badgeClass='bg-primary-subtle text-primary border border-primary' ;
+                                                statusText='Đang giao' ; } else if (s==='error' || s==='return' ) {
+                                                badgeClass='bg-danger-subtle text-danger border border-danger' ;
+                                                statusText='Có vấn đề' ; } else if (s==='cancel' ) {
+                                                badgeClass='bg-danger-subtle text-danger border border-danger' ;
+                                                statusText='Đã hủy' ; } %>
+                                                <span class="badge rounded-pill <%= badgeClass %>"
+                                                    style="font-size: 0.65rem; padding: 0.4em 0.8em;">
+                                                    <%= statusText %>
+                                                </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <% }) %>
+                        </div>
+                        <div class="mt-auto pt-2 text-center">
+                            <a href="/orders" class="btn btn-outline-primary btn-sm w-100 rounded-3">
+                                Xem tất cả đơn hàng <i class="fas fa-chevron-right ms-1" style="font-size: 0.7rem;"></i>
+                            </a>
+                        </div>
+                        <% } else { %>
+                            <div class="text-center py-5">
+                                <p class="text-muted small">Chưa có vận đơn nào được tạo</p>
+                                <a href="/customers" class="btn btn-primary btn-sm px-4">Tạo đơn ngay</a>
+                            </div>
+                            <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const ctx = document.getElementById('orderChart').getContext('2d');
+            const rawChartData = JSON.parse('<%- JSON.stringify(stats.chart || []) %>');
+
+            let labels = rawChartData.map(item => {
+                const date = new Date(item.date);
+                return date.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' });
+            });
+
+            let counts = rawChartData.map(item => item.count);
+
+            if (labels.length === 0) {
+                labels = ['Chưa có dữ liệu'];
+                counts = [0];
+            }
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Số đơn hàng',
+                        data: counts,
+                        borderColor: '#0d6efd',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#0d6efd',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            padding: 12,
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleFont: { size: 14, weight: 'bold' }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { borderDash: [5, 5], color: '#e9ecef' },
+                            ticks: { stepSize: 1, color: '#6c757d' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#6c757d' }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+
+    <%- include('partials/footer') %>

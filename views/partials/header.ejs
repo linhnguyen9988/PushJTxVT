@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Ship</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo_phone.png">
+
+    <link rel="icon" type="image/png" sizes="192x192" href="/logo_phone.png">
+
+    <meta name="apple-mobile-web-app-title" content="TV Ship">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0d6efd">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+
+    <script type="text/javascript" src="/js/html5-qrcode.min.js"></script>
+    <script type="text/javascript" src="/js/qrcode.js"></script>
+    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+</head>
+<script>//var vConsole = new VConsole();</script>
+
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 d-none d-lg-block">
+        <div class="container-fluid px-md-5">
+            <a class="navbar-brand fw-bold text-primary" href="/">
+                <img src="/logo.png" alt="Logo" style="height: 40px;">
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <% if (locals.user) { %>
+                        <li class="nav-item">
+                            <% if (locals.role==='admin' || locals.role==='manager' ) { %>
+                                <a class="nav-link text-white" href="/admin/orders">📦 Vận đơn (Admin)</a>
+                                <% } else { %>
+                                    <a class="nav-link text-white" href="/orders">📦 Vận đơn</a>
+                                    <% } %>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/customers">👥 Khách hàng</a>
+                        </li>
+                        <% } %>
+                </ul>
+
+                <div class="navbar-nav align-items-center">
+                    <% if (locals.user) { %>
+
+                        <a class="nav-link me-2 text-light" href="/profile"><img src="<%= locals.avatar %>"
+                                class="rounded-circle me-2" width="30" height="30"
+                                style="object-fit: cover; border: 1px solid #fff;"> Trang cá nhân</a>
+
+                        <% if (locals.role==='admin' || locals.role==='manager' ) { %>
+                            <a class="nav-link btn btn-outline-warning btn-sm me-2 text-warning px-3"
+                                href="/admin/dashboard">
+                                Admin Panel
+                            </a>
+                            <% } %>
+
+                                <a class="nav-link btn btn-danger btn-sm text-white px-3" href="/logout">Đăng xuất</a>
+                                <% } else { %>
+                                    <a class="nav-link" href="/login">Đăng nhập</a>
+                                    <a class="nav-link btn btn-primary btn-sm ms-lg-2 px-3 text-white"
+                                        href="/register">Đăng ký</a>
+                                    <% } %>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+
+    <div class="container-fluid flex-grow-1 px-md-5">

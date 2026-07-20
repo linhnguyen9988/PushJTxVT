@@ -1,0 +1,176 @@
+<div id="customer-popup-overlay" class="custom-overlay">
+    <div class="custom-popup shadow-lg">
+        <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0" id="popup-title">Thêm khách hàng mới</h5>
+            <button type="button" class="btn-close btn-close-white" onclick="closePopup()"></button>
+        </div>
+        <form id="customerForm" class="p-3">
+            <input type="hidden" id="customer_id" name="id">
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Họ và tên</label>
+                <input type="text" id="cust_name" name="name" class="form-control" placeholder="Nguyễn Văn A" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Số điện thoại</label>
+                <input type="text" id="cust_phone" name="phone" class="form-control" placeholder="09xxx" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-bold">Địa chỉ nhận hàng</label>
+                <textarea id="cust_address" name="address" class="form-control" rows="3"
+                    placeholder="Số nhà, đường, phường/xã..."></textarea>
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <button type="button" class="btn btn-light" onclick="closePopup()">Hủy</button>
+                <button type="submit" class="btn btn-primary px-4" id="btnSave">Lưu thông tin</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="confirm-popup-overlay" class="custom-overlay">
+    <div class="custom-popup shadow-lg text-center p-4" style="max-width: 380px;">
+        <div class="mb-3">
+            <i class="fas fa-exclamation-triangle text-warning" style="font-size: 3.5rem;"></i>
+        </div>
+        <h4 class="fw-bold">Xác nhận xóa?</h4>
+        <p id="confirm-message" class="text-muted px-3"></p>
+        <div class="d-grid gap-2 mt-4">
+            <button type="button" id="btn-confirm-action" class="btn btn-danger py-2 fw-bold shadow-sm">XÓA
+                NGAY</button>
+            <button type="button" class="btn btn-light py-2" onclick="closeConfirm()">QUAY LẠI</button>
+        </div>
+    </div>
+</div>
+
+<div id="notice-popup-overlay" class="custom-overlay">
+    <div class="custom-popup shadow-lg text-center p-4" style="max-width: 350px;">
+        <div id="notice-icon" class="mb-3"></div>
+        <h4 id="notice-title" class="fw-bold"></h4>
+        <p id="notice-message" class="text-dark fw-medium mb-4"></p>
+        <button type="button" class="btn btn-dark w-100 py-2 shadow-sm" style="border-radius: 10px;"
+            onclick="closeNotice()">ĐÃ HIỂU</button>
+    </div>
+</div>
+<!-- Modal Orders-->
+<div id="custom-popup-overlay">
+    <div class="custom-popup-content shadow-lg">
+        <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">🚀 LÊN ĐƠN MỚI</h6>
+            <button type="button" class="btn-close btn-close-white" onclick="hidePopup()"></button>
+        </div>
+        <div class="p-3">
+            <form id="createOrderForm">
+                <div class="mb-3">
+                    <label class="small fw-bold d-block mb-2">Đơn vị vận chuyển</label>
+                    <div class="btn-group w-100">
+                        <input type="radio" class="btn-check" name="provider" id="jtBtn" value="J&T" checked
+                            onchange="toggleVTP(this.value)">
+                        <label class="btn btn-outline-primary btn-sm" for="jtBtn">J&T Express</label>
+                        <input type="radio" class="btn-check" name="provider" id="vtpBtn" value="Viettel"
+                            onchange="toggleVTP(this.value)">
+                        <label class="btn btn-outline-danger btn-sm" for="vtpBtn">Viettel Post</label>
+                    </div>
+                </div>
+
+                <div id="vtpShopSection" class="d-none p-2 rounded mb-3 border bg-light">
+                    <div class="small text-danger fw-bold">KHO GỬI VIETTEL</div>
+                    <div class="small text-dark">SĐT: <%= stats.vtp_shop_phone %>
+                    </div>
+                    <div class="small text-muted text-truncate">Đ/C: <%= stats.vtp_shop_address %>
+                    </div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-12">
+                        <label class="small fw-bold">Họ tên người nhận</label>
+                        <input type="text" name="customer_name" id="name_input" class="form-control"
+                            list="customerDataList" oninput="autoFillCust(this.value)" required>
+                        <datalist id="customerDataList">
+                            <% customers.forEach(c=> { %> <option value="<%= c.name %>">SĐT: <%= c.phone %>
+                                </option>
+                                <% }) %>
+                        </datalist>
+                    </div>
+                    <div class="col-12">
+                        <label class="small fw-bold">Số điện thoại</label>
+                        <input type="text" name="customer_phone" id="phone_input" class="form-control" required>
+                    </div>
+                    <div class="col-12">
+                        <label class="small fw-bold">Địa chỉ</label>
+                        <textarea name="address" id="addr_input" class="form-control" rows="2" required></textarea>
+                    </div>
+                    <div class="col-6"><label class="small fw-bold">COD (vnđ)</label><input type="number" name="cod"
+                            class="form-control" value="0"></div>
+                    <div class="col-6"><label class="small fw-bold">Cân nặng (kg)</label><input type="number"
+                            name="weight" step="0.1" class="form-control" value="0.5"></div>
+                    <div class="col-12"><label class="small fw-bold">Tên hàng</label><input type="text"
+                            name="product_name" class="form-control" value="Quần áo"></div>
+                </div>
+            </form>
+        </div>
+        <div class="p-3 bg-light d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="hidePopup()">Đóng</button>
+            <button type="button" onclick="submitOrder()" id="btnSubmit" class="btn btn-sm btn-primary">Đẩy đơn
+                ngay</button>
+        </div>
+    </div>
+</div>
+<div id="success-popup-overlay"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000000; justify-content: center; align-items: center;">
+    <div class="custom-popup-content shadow-lg text-center p-4"
+        style="max-width: 400px; border-radius: 20px; background: #fff;">
+        <div class="mb-3">
+            <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+        </div>
+        <h4 class="fw-bold text-dark">Lên Đơn Thành Công!</h4>
+        <p class="text-muted">Mã vận đơn của bạn là:</p>
+        <div class="bg-light p-3 rounded-3 mb-4">
+            <h3 class="fw-bold text-primary mb-0" id="success-order-code">---------</h3>
+        </div>
+
+        <div class="d-grid gap-2">
+            <button type="button" class="btn btn-success py-2 fw-bold" id="btn-print-now">
+                <i class="fas fa-print me-2"></i> IN VẬN ĐƠN NGAY
+            </button>
+            <button type="button" class="btn btn-outline-secondary py-2" onclick="location.reload()">
+                Để sau (Đóng)
+            </button>
+        </div>
+    </div>
+</div>
+<div id="notice-popup-overlay"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 1000001; justify-content: center; align-items: center;">
+    <div class="custom-popup-content shadow-lg text-center p-4"
+        style="max-width: 380px; border-radius: 25px; background: #fff; border: none;">
+        <div id="notice-icon" class="mb-3 animate__animated animate__zoomIn">
+        </div>
+        <h4 id="notice-title" class="fw-bold">Thông báo</h4>
+        <div id="notice-message" class="text-dark fw-medium px-2" style="font-size: 0.95rem; line-height: 1.5;">
+        </div>
+
+        <div class="mt-4">
+            <button type="button" class="btn btn-dark w-100 py-2 fw-bold shadow-sm" style="border-radius: 12px;"
+                onclick="closeNotice()">
+                XÁC NHẬN
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="confirm-popup-overlay"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000002; justify-content: center; align-items: center;">
+    <div class="custom-popup-content shadow-lg text-center p-4"
+        style="max-width: 350px; border-radius: 20px; background: #fff;">
+        <div class="mb-3">
+            <i class="fas fa-question-circle text-warning" style="font-size: 3rem;"></i>
+        </div>
+        <h5 class="fw-bold text-dark">Xác nhận hủy đơn?</h5>
+        <p id="confirm-message" class="text-muted small">Hành động này không thể hoàn tác trên hệ thống Viettel
+            Post.</p>
+
+        <div class="d-grid gap-2 mt-4">
+            <button type="button" id="btn-confirm-action" class="btn btn-danger py-2 fw-bold">HỦY ĐƠN NGAY</button>
+            <button type="button" class="btn btn-light py-2" onclick="closeConfirm()">QUAY LẠI</button>
+        </div>
+    </div>
+</div>

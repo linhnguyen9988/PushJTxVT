@@ -1,0 +1,1062 @@
+<%- include('partials/header') %>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
+  :root {
+    --ink: #0e0f13;
+    --ink2: #181a21;
+    --surface: #1e2029;
+    --surface2: #252833;
+    --border: rgba(255,255,255,0.07);
+    --accent: #f0a500;
+    --accent2: #ff5e5b;
+    --accent3: #00d4aa;
+    --text: #e8eaf0;
+    --muted: #7a7f96;
+    --radius: 14px;
+  }
+
+  body { background: var(--ink) !important; font-family: 'Arimo', sans-serif; color: var(--text); }
+  .navbar { background: var(--ink2) !important; border-bottom: 1px solid var(--border); }
+
+  .adm-wrap { padding: 0 0 60px; }
+
+  .page-header {
+    padding: 28px 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .page-header h1 {
+    font-family: 'Arimo', sans-serif;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #fff;
+    margin: 0;
+    letter-spacing: -0.5px;
+  }
+  .page-header h1 span { color: var(--accent); }
+  .page-header .subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+
+  .stat-strip {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 22px;
+    flex: 1;
+    min-width: 130px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, border-color .2s;
+  }
+  .stat-chip:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .stat-chip::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-chip.c-yellow::before { background: var(--accent); }
+  .stat-chip.c-red::before { background: var(--accent2); }
+  .stat-chip.c-green::before { background: var(--accent3); }
+  .stat-chip.c-blue::before { background: #4f8ef7; }
+  .stat-chip .chip-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+  .stat-chip .chip-val {
+    font-family: 'Arimo', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-top: 6px;
+    color: #fff;
+  }
+
+  /* ── Card ── */
+  .adm-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .adm-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .adm-card-header h6 {
+    font-family: 'Arimo', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin: 0;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .adm-card-header h6 .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .adm-card-body { padding: 20px; }
+
+  /* ── Search Bar ── */
+  .search-bar {
+    display: flex;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 6px 6px 16px;
+    align-items: center;
+  }
+  .search-bar input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'Arimo', sans-serif;
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 0;
+  }
+  .search-bar input::placeholder { color: var(--muted); }
+  .btn-accent {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    padding: 7px 16px;
+    cursor: pointer;
+    transition: opacity .15s;
+    white-space: nowrap;
+  }
+  .btn-accent:hover { opacity: 0.85; }
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.82rem;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: border-color .15s;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-ghost.danger:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .vtp-status {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.82rem;
+  }
+  .vtp-status .indicator {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .vtp-status.ok .indicator { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
+  .vtp-status.warn .indicator { background: #f0a500; box-shadow: 0 0 8px #f0a500; }
+  .vtp-status .info { color: var(--muted); font-size: 0.75rem; }
+
+  .adm-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .adm-input:focus { border-color: var(--accent); }
+  .adm-input::placeholder { color: var(--muted); }
+  .adm-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; margin-bottom: 6px; display: block; }
+
+  .adm-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .adm-table thead tr { border-bottom: 1px solid var(--border); }
+  .adm-table thead th {
+    padding: 10px 14px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .adm-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background .15s;
+  }
+  .adm-table tbody tr:hover { background: var(--surface2); }
+  .adm-table tbody tr.locked { opacity: 0.5; }
+  .adm-table td { padding: 12px 14px; vertical-align: middle; }
+
+  .user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+    margin-right: 10px;
+    border: 1.5px solid var(--border);
+  }
+  .user-name { font-weight: 500; color: #fff; font-size: 0.9rem; }
+  .user-sub { color: var(--muted); font-size: 0.75rem; }
+
+  .badge-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .badge-status.active { background: rgba(0,212,170,.12); color: var(--accent3); }
+  .badge-status.locked { background: rgba(255,94,91,.12); color: var(--accent2); }
+
+  .price-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .price-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .price-row label { color: var(--muted); font-size: 0.7rem; width: 34px; flex-shrink: 0; }
+  .price-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    width: 90px;
+    outline: none;
+  }
+  .price-input:focus { border-color: var(--accent); }
+  .btn-save-price {
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 5px 10px;
+    cursor: pointer;
+    margin-top: 4px;
+    width: 100%;
+    transition: opacity .15s;
+  }
+  .btn-save-price:hover { opacity: 0.85; }
+
+  select.adm-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    outline: none;
+    width: 100%;
+  }
+
+  .log-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .log-item:last-child { border: none; }
+  .log-actor {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .log-text { font-size: 0.82rem; color: var(--text); line-height: 1.4; }
+  .log-time { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+  .today-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .today-row:last-child { border: none; }
+  .today-shop { flex: 1; min-width: 0; }
+  .today-shop .name { font-weight: 500; font-size: 0.88rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .today-shop .handle { font-size: 0.72rem; color: var(--muted); }
+  .today-orders {
+    background: rgba(240,165,0,.12);
+    color: var(--accent);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .today-cod { font-family: 'Arimo', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--accent3); white-space: nowrap; }
+
+  #bill-result-area { margin-top: 16px; }
+  .bill-table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+  .bill-table th { padding: 8px 12px; color: var(--muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.6px; border-bottom: 1px solid var(--border); }
+  .bill-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .toolbar-search {
+    flex: 1; min-width: 160px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .modal-content { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--radius) !important; color: var(--text) !important; }
+  .modal-header { background: var(--surface2) !important; border-bottom: 1px solid var(--border) !important; }
+  .modal-header .modal-title { font-family: 'Arimo', sans-serif; font-weight: 700; color: #fff !important; font-size: 1rem; }
+  .modal-footer { background: var(--surface2) !important; border-top: 1px solid var(--border) !important; }
+  .modal-header .btn-close { filter: invert(1); }
+  .form-label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  .form-control, .form-select {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    border-radius: 8px !important;
+    font-size: 0.87rem !important;
+  }
+  .form-control:focus, .form-select:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(240,165,0,.1) !important; }
+  .btn-secondary { background: var(--surface2) !important; border: 1px solid var(--border) !important; color: var(--text) !important; }
+  .btn-success { background: var(--accent3) !important; border-color: var(--accent3) !important; color: #000 !important; font-weight: 700 !important; }
+  .btn-success:hover { opacity: 0.85 !important; }
+
+  .custom-popup-overlay .bg-white {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+  }
+  .custom-popup-overlay h5 { font-family: 'Arimo', sans-serif; font-weight: 700; font-size: 1rem; color: #fff; }
+
+  #modal-edit-order .modal-content { background: var(--surface) !important; }
+  #modal-edit-order h5 { font-family: 'Arimo', sans-serif; font-weight: 700; color: #fff; }
+  #modal-edit-order label { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+  #modal-edit-order .form-control, #modal-edit-order .form-select, #modal-edit-order textarea {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    border-radius: 8px !important;
+  }
+
+  #admin-jt-modal .bg-white { background: var(--surface) !important; }
+  #admin-jt-modal label { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; font-weight: 600; }
+  #admin-jt-modal .form-control, #admin-jt-modal .form-select {
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text) !important;
+    border-radius: 8px !important;
+  }
+  #admin-jt-modal .btn-light { background: var(--surface2) !important; border: 1px solid var(--border) !important; color: var(--text) !important; }
+  #admin-jt-modal .btn-primary { background: var(--accent) !important; border-color: var(--accent) !important; color: #000 !important; font-weight: 700 !important; }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+</style>
+
+<div class="container-fluid px-3 px-md-4 adm-wrap">
+
+  <div class="page-header">
+    <div>
+      <h1>Admin <span>Dashboard</span></h1>
+      <div class="subtitle">Quản lý hệ thống TV Ship</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <button class="btn-ghost" onclick="openExportModal(null, null)">
+        <i class="fas fa-file-excel"></i> Xuất Excel
+      </button>
+      <button class="btn-ghost" onclick="document.getElementById('excelInput').click()">
+        <i class="fas fa-file-import"></i> Nhập khách
+      </button>
+    </div>
+    <input type="file" id="excelInput" accept=".xlsx, .xls" style="display:none;" onchange="handleExcel(this)">
+  </div>
+
+  <div class="row g-4">
+
+    <!-- ── LEFT COLUMN ── -->
+    <div class="col-lg-4">
+
+      <!-- VTP Config -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h6><span class="dot" style="background:var(--accent2)"></span> Viettel Post</h6>
+        </div>
+        <div class="adm-card-body">
+          <div id="vtp-status" class="vtp-status <%= vtpConfig && vtpConfig.vtp_token ? 'ok' : 'warn' %>">
+            <span class="indicator"></span>
+            <div>
+              <% if (vtpConfig && vtpConfig.vtp_token) { %>
+                <div style="font-weight:600;color:var(--accent3);">Đang hoạt động</div>
+                <div class="info">CusID: <%= vtpConfig.vtp_cusid %> &nbsp;·&nbsp; <%= vtpConfig.vtp_username %></div>
+              <% } else { %>
+                <div style="font-weight:600;color:var(--accent);">Chưa cấu hình</div>
+                <div class="info">Nhập thông tin để kết nối</div>
+              <% } %>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="adm-label">SĐT Viettel Post</label>
+            <input type="text" id="vtp_user" class="adm-input" placeholder="Số điện thoại..." value="<%= vtpConfig ? vtpConfig.vtp_username : '' %>">
+          </div>
+          <div class="mb-3">
+            <label class="adm-label">Mật khẩu</label>
+            <input type="password" id="vtp_pass" class="adm-input" placeholder="••••••••" value="<%= vtpConfig ? vtpConfig.vtp_password : '' %>">
+          </div>
+          <button onclick="connectVTPAdmin()" class="btn-accent w-100">
+            <i class="fas fa-key me-1"></i> Cập nhật token hệ thống
+          </button>
+        </div>
+      </div>
+
+      <!-- Today Orders -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h6><span class="dot" style="background:var(--accent3)"></span> Đơn hàng hôm nay</h6>
+          <span style="font-size:0.72rem;color:var(--muted);">Theo giờ tạo</span>
+        </div>
+        <div class="adm-card-body" style="padding:16px 20px;">
+          <% if (todayStats && todayStats.length > 0) { %>
+            <% todayStats.forEach(item => { %>
+            <div class="today-row">
+              <div class="today-shop">
+                <div class="name"><%= item.shopname || 'Chưa đặt tên' %></div>
+                <div class="handle">@<%= item.username %></div>
+              </div>
+              <span class="today-orders"><%= item.total_orders %> đơn</span>
+              <span class="today-cod"><%= new Intl.NumberFormat('vi-VN').format(item.total_cod || 0) %>đ</span>
+            </div>
+            <% }) %>
+          <% } else { %>
+            <div style="text-align:center;padding:32px 0;color:var(--muted);">
+              <i class="fas fa-box-open fa-2x mb-2" style="opacity:.3;display:block;"></i>
+              Hôm nay chưa có đơn hàng
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h6><span class="dot" style="background:#4f8ef7"></span> Nhật ký hoạt động</h6>
+        </div>
+        <div class="adm-card-body" style="max-height:320px;overflow-y:auto;">
+          <% logs.forEach(log => { %>
+          <div class="log-item">
+            <div class="log-actor"><i class="fas fa-user-circle" style="font-size:0.65rem;"></i> <%= log.performed_by %></div>
+            <div class="log-text"><%= log.action %></div>
+            <div class="log-time"><%= new Date(log.created_at).toLocaleString('vi-VN') %></div>
+          </div>
+          <% }) %>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── RIGHT COLUMN ── -->
+    <div class="col-lg-8">
+
+      <!-- Bill Search -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h6><span class="dot" style="background:var(--accent)"></span> Tra cứu & Chỉnh sửa vận đơn</h6>
+        </div>
+        <div class="adm-card-body">
+          <div class="search-bar">
+            <i class="fas fa-search" style="color:var(--muted);"></i>
+            <input type="text" id="search-bill-code" placeholder="Nhập mã vận đơn (J&T, Viettel, GHN...)">
+            <button class="btn-accent" onclick="searchBillAdmin()">Tìm kiếm</button>
+          </div>
+          <div id="bill-result-area" style="display:none;margin-top:16px;overflow-x:auto;">
+            <table class="bill-table">
+              <thead>
+                <tr>
+                  <th>UID</th><th>Mã đơn</th><th>Người nhận</th><th>SĐT</th><th>Trạng thái</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="bill-result-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Management -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h6><span class="dot" style="background:var(--accent3)"></span> Quản lý người dùng</h6>
+          <form action="/admin/dashboard" method="GET" style="display:flex;gap:8px;">
+            <input type="text" name="search" class="adm-input" style="width:200px;padding:6px 12px;" placeholder="Tìm user..." value="<%= search %>">
+            <button type="submit" class="btn-accent">Tìm</button>
+          </form>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="adm-table">
+            <thead>
+              <tr>
+                <th>Người dùng</th>
+                <th>Giá cước</th>
+                <th>Trạng thái</th>
+                <th>Kho VTP</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% users.forEach(row => { %>
+              <tr class="<%= row.is_locked ? 'locked' : '' %>">
+                <td>
+                  <div style="display:flex;align-items:center;">
+                    <img src="<%= row.avatar || '/default-avatar.png' %>" class="user-avatar" alt="">
+                    <div>
+                      <div class="user-name"><%= row.username %></div>
+                      <div class="user-sub"><%= row.shopname || '—' %></div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <% if (currentRole === 'admin') { %>
+                  <div class="price-group">
+                    <div class="price-row">
+                      <label>KG</label>
+                      <input type="number" class="price-input base-weight" data-id="<%= row.id %>" value="<%= Math.floor(row.base_weight || 2) %>">
+                    </div>
+                    <div class="price-row">
+                      <label>Gốc</label>
+                      <input type="number" class="price-input base-price" data-id="<%= row.id %>" value="<%= Math.floor(row.base_price || 20000) %>">
+                    </div>
+                    <div class="price-row">
+                      <label>Bước</label>
+                      <input type="number" class="price-input step-price" data-id="<%= row.id %>" value="<%= Math.floor(row.step_price || 5000) %>">
+                    </div>
+                    <button class="btn-save-price" data-id="<%= row.id %>" onclick="updateUserPrice(parseInt(this.dataset.id))">
+                      <i class="fas fa-save me-1"></i> Lưu giá
+                    </button>
+                  </div>
+                  <% } else { %>
+                  <div style="font-size:0.8rem;color:var(--muted);">
+                    <div>Gốc: <strong style="color:var(--text)"><%= Math.floor(row.base_price || 20000).toLocaleString('vi-VN') %>đ</strong></div>
+                    <div>Bước: <strong style="color:var(--text)"><%= Math.floor(row.step_price || 5000).toLocaleString('vi-VN') %>đ</strong></div>
+                  </div>
+                  <% } %>
+                </td>
+                <td>
+                  <span class="badge-status <%= row.is_locked ? 'locked' : 'active' %>">
+                    <span style="width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;"></span>
+                    <%= row.is_locked ? 'Bị khóa' : 'Hoạt động' %>
+                  </span>
+                </td>
+                <td style="min-width:170px;">
+                  <select class="adm-select vtp-shop-select" data-user-id="<%= row.id %>" data-current-id="<%= row.vtp_inventory_id %>" onchange="handleShopChange(this)">
+                    <option value="">— Chọn kho VTP —</option>
+                  </select>
+                  <button class="btn-ghost mt-1" style="width:100%;justify-content:center;" data-row='<%- JSON.stringify(row) %>' onclick="openAdminJTModal(JSON.parse(this.dataset.row))">
+                    <i class="fas fa-warehouse"></i> Set kho J&T
+                  </button>
+                </td>
+                <td>
+                  <div style="display:flex;flex-direction:column;gap:6px;">
+                    <button class="btn-ghost" data-id="<%= row.id %>" data-username="<%= row.username %>" onclick="openExportModal(parseInt(this.dataset.id), this.dataset.username)">
+                      <i class="fas fa-file-export"></i> Xuất đơn
+                    </button>
+                    <form action="/admin/toggle-lock/<%= row.id %>" method="POST" style="margin:0;">
+                      <button class="btn-ghost <%= row.is_locked ? '' : 'danger' %>" style="width:100%;justify-content:center;">
+                        <i class="fas fa-<%= row.is_locked ? 'lock-open' : 'lock' %>"></i>
+                        <%= row.is_locked ? 'Mở khóa' : 'Khóa' %>
+                      </button>
+                    </form>
+                    <form action="/admin/delete/<%= row.id %>" method="POST" onsubmit="return confirm('Xóa vĩnh viễn user này?')" style="margin:0;">
+                      <button class="btn-ghost danger" style="width:100%;justify-content:center;">
+                        <i class="fas fa-trash"></i> Xóa
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODALS (giữ nguyên logic, style dark) ═══ -->
+
+<div id="admin-jt-modal" class="custom-popup-overlay"
+  style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
+  <div class="bg-white p-4 rounded shadow-lg" style="width:500px;max-width:95%;">
+    <h5 class="fw-bold mb-3">Cấu hình kho J&T — User <span id="target-user-id"></span></h5>
+    <form id="admin-jt-form">
+      <input type="hidden" name="target_user_id" id="input-target-id">
+      <div class="row g-2">
+        <div class="col-12 mb-2">
+          <label class="small fw-bold">Tên Shop</label>
+          <input type="text" name="jt_shopname" id="adm_jt_name" class="form-control form-control-sm">
+        </div>
+        <div class="col-12 mb-2">
+          <label class="small fw-bold">Số điện thoại</label>
+          <input type="text" name="jt_sdt" id="adm_jt_sdt" class="form-control form-control-sm">
+        </div>
+        <div class="col-12 mb-2">
+          <label class="small fw-bold">Địa chỉ chi tiết</label>
+          <input type="text" name="jt_shopaddress" id="adm_jt_addr" class="form-control form-control-sm">
+        </div>
+        <select id="adm_jt_prov" name="jt_shop_prov" class="form-select" onchange="loadDistrictsAdmin(this.value)"></select>
+        <select id="adm_jt_dist" name="jt_shop_district" class="form-select" onchange="loadWardsAdmin(document.getElementById('adm_jt_prov').value, this.value)"></select>
+        <select id="adm_jt_ward" name="jt_shop_ward" class="form-select"></select>
+      </div>
+      <div class="d-flex gap-2 mt-4">
+        <button type="button" class="btn btn-light flex-grow-1" onclick="closeAdminJTModal()">Hủy</button>
+        <button type="button" class="btn btn-primary flex-grow-1" onclick="submitAdminJT()">Lưu cấu hình</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="exportExcelModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-file-excel me-2" style="color:var(--accent3)"></i>Xuất Excel Vận Đơn</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="background:var(--surface);">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Chọn shop</label>
+            <select id="exportShopSelect" class="form-select">
+              <option value="">— Chọn shop —</option>
+              <% users.forEach(u => { %>
+              <option value="<%= u.id %>" data-username="<%= u.username %>"><%= u.shopname || u.username %> (<%= u.username %>)</option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Lọc theo</label>
+            <select id="exportDateType" class="form-select">
+              <option value="created">Ngày tạo đơn</option>
+              <option value="pickup">Ngày lấy hàng</option>
+            </select>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Từ ngày</label>
+            <input type="date" id="exportStartDate" class="form-control">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Đến ngày</label>
+            <input type="date" id="exportEndDate" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" class="btn btn-success" onclick="handleExportExcel()">
+          <i class="fas fa-download me-1"></i> Tải về (.xlsx)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="previewModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-file-import me-2" style="color:var(--accent)"></i>Xem trước & Gán khách hàng</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="background:var(--surface);">
+        <div class="mb-3 p-3 rounded" style="background:rgba(240,165,0,.08);border:1px solid rgba(240,165,0,.2);">
+          <label class="fw-bold text-warning mb-2" style="font-size:.85rem;">1. Chọn tài khoản User nhận khách:</label>
+          <select id="targetUserSelect" class="form-select">
+            <option value="">— Tìm hoặc chọn User —</option>
+            <% users.forEach(u => { %>
+            <option value="<%= u.id %>"><%= u.username %> - <%= u.fullname || '' %></option>
+            <% }) %>
+          </select>
+        </div>
+        <label class="fw-bold mb-2" style="font-size:.85rem;">2. Danh sách khách hàng từ file:</label>
+        <div class="table-responsive" style="max-height:280px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <table class="table table-sm mb-0" style="background:var(--surface2);color:var(--text);font-size:.82rem;">
+            <thead style="background:var(--ink2);">
+              <tr>
+                <th style="color:var(--muted);font-size:.7rem;text-transform:uppercase;padding:8px 12px;">Tên</th>
+                <th style="color:var(--muted);font-size:.7rem;text-transform:uppercase;padding:8px 12px;">SĐT</th>
+                <th style="color:var(--muted);font-size:.7rem;text-transform:uppercase;padding:8px 12px;">Địa chỉ</th>
+              </tr>
+            </thead>
+            <tbody id="previewBody"></tbody>
+          </table>
+        </div>
+        <div id="rowCountDesc" class="mt-2 text-end" style="font-size:.8rem;color:var(--accent3);font-weight:600;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>
+        <button type="button" class="btn btn-success" id="btnUpload" onclick="uploadAll()">
+          <i class="fas fa-cloud-upload-alt me-1"></i> Xác nhận thêm vào DB
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-edit-order"
+  style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:500px;max-width:94%;max-height:90vh;overflow-y:auto;">
+    <h5 style="font-family:'Arimo',sans-serif;font-weight:700;color:#fff;margin-bottom:20px;">Chỉnh sửa vận đơn</h5>
+    <input type="hidden" id="edit-order-id">
+    <input type="hidden" id="edit-cust-id">
+    <div class="mb-3">
+      <label class="adm-label">Tên khách hàng</label>
+      <input type="text" id="edit-cust-name" class="adm-input">
+    </div>
+    <div class="mb-3">
+      <label class="adm-label">Số điện thoại</label>
+      <input type="text" id="edit-cust-phone" class="adm-input">
+    </div>
+    <div class="mb-3">
+      <label class="adm-label">
+        Tiền COD
+        <% if (currentRole !== 'admin') { %><span style="color:var(--accent2);font-size:.72rem;"> (chỉ Admin)</span><% } %>
+      </label>
+      <input type="number" id="edit-cust-cod" class="adm-input" <%= currentRole !== 'admin' ? 'disabled' : '' %>>
+    </div>
+    <div class="mb-3">
+      <label class="adm-label">KG</label>
+      <input type="number" id="edit-cust-kg" class="adm-input">
+    </div>
+    <div class="mb-3">
+      <label class="adm-label">Địa chỉ chi tiết</label>
+      <textarea id="edit-cust-addr" class="adm-input" rows="2"></textarea>
+    </div>
+    <div class="row g-2 mb-3">
+      <div class="col-4"><select id="edit_jt_ward" class="adm-select"></select></div>
+      <div class="col-4"><select id="edit_jt_dist" class="adm-select" onchange="loadWardsAdmin(document.getElementById('edit_jt_prov').value, this.value, null, 'edit_jt_ward')"></select></div>
+      <div class="col-4"><select id="edit_jt_prov" class="adm-select" onchange="loadDistrictsAdmin(this.value, null, 'edit_jt_dist')"></select></div>
+    </div>
+    <div class="d-flex gap-2 justify-content-end mt-2">
+      <button class="btn-ghost" onclick="document.getElementById('modal-edit-order').style.display='none'">Đóng</button>
+      <button class="btn-accent" onclick="saveOrderUpdate()"><i class="fas fa-save me-1"></i> Lưu thay đổi</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CURRENT_ROLE = "<%= currentRole %>";
+
+  async function connectVTPAdmin() {
+    const user = document.getElementById('vtp_user').value;
+    const pass = document.getElementById('vtp_pass').value;
+    if (!user || !pass) return showNotice("Cảnh báo", "Nhập đủ tài khoản admin Viettel Post!", "warning");
+    try {
+      const res = await fetch('/admin/update-vtp-system', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vtp_user: user, vtp_pass: pass })
+      });
+      const result = await res.json();
+      if (result.success) { alert("Đã cập nhật cấu hình Viettel Post!"); location.reload(); }
+      else alert(result.message);
+    } catch (e) { alert("Lỗi kết nối server"); }
+  }
+
+  async function updateUserPrice(userId) {
+    const basePrice = document.querySelector(`.base-price[data-id="${userId}"]`).value;
+    const stepPrice = document.querySelector(`.step-price[data-id="${userId}"]`).value;
+    const baseWeight = document.querySelector(`.base-weight[data-id="${userId}"]`).value;
+    if (!basePrice || !stepPrice || !baseWeight) { showNotice("Cảnh báo", "Nhập đầy đủ giá cước, kg!", "warning"); return; }
+    try {
+      const response = await fetch('/admin/update-user-price', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, basePrice, stepPrice, baseWeight })
+      });
+      const result = await response.json();
+      if (result.success) {
+        const btn = document.querySelector(`button[onclick="updateUserPrice(${userId})"]`);
+        const orig = btn.innerHTML;
+        btn.style.background = 'var(--accent3)';
+        btn.innerHTML = '<i class="fas fa-check"></i> Đã lưu';
+        setTimeout(() => { btn.style.background = ''; btn.innerHTML = orig; }, 2000);
+      } else { showNotice("Lỗi", result.message, "error"); }
+    } catch (e) { showNotice("Lỗi", "Không kết nối được server", "error"); }
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const res = await fetch('/api/viettel/inventories');
+      const result = await res.json();
+      if (result.status === 200) {
+        document.querySelectorAll('.vtp-shop-select').forEach(select => {
+          const cur = select.getAttribute('data-current-id');
+          result.data.forEach(shop => {
+            const opt = document.createElement('option');
+            opt.value = shop.id;
+            opt.text = `${shop.name} (${shop.phone})`;
+            opt.dataset.name = shop.name; opt.dataset.phone = shop.phone; opt.dataset.address = shop.address;
+            if (cur && String(shop.id).trim() === String(cur).trim()) opt.selected = true;
+            select.appendChild(opt);
+          });
+        });
+      }
+    } catch (e) { console.error("Lỗi nạp kho:", e); }
+  });
+
+  async function handleShopChange(selectEl) {
+    const userId = selectEl.getAttribute('data-user-id');
+    const opt = selectEl.options[selectEl.selectedIndex];
+    if (!opt.value) return;
+    try {
+      const res = await fetch('/admin/assign-vtp-shop', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, shopData: { inventoryId: opt.value, name: opt.dataset.name, phone: opt.dataset.phone, address: opt.dataset.address } })
+      });
+      const result = await res.json();
+      if (result.success) showNotice("Thành công", "Đã gán kho!", "success");
+      else showNotice("Lỗi", result.message, "error");
+    } catch (e) { showNotice("Lỗi", "Lỗi kết nối!", "error"); }
+  }
+
+  let excelData = [];
+  function handleExcel(input) {
+    const file = input.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const previewBody = document.getElementById('previewBody');
+      previewBody.innerHTML = ''; excelData = [];
+      jsonData.slice(1).forEach(row => {
+        if (row.length >= 2 && row[1]) {
+          const c = { name: String(row[0]||'').trim(), phone: String(row[1]||'').trim(), address: String(row[2]||'').trim() };
+          if (c.name && c.phone && c.phone.toLowerCase() !== 'sđt') {
+            excelData.push(c);
+            previewBody.innerHTML += `<tr><td style="padding:8px 12px;">${c.name}</td><td style="padding:8px 12px;color:var(--accent3);font-weight:600;">${c.phone}</td><td style="padding:8px 12px;color:var(--muted);font-size:.8rem;">${c.address}</td></tr>`;
+          }
+        }
+      });
+      if (!excelData.length) { showNotice("Lỗi","Không có dữ liệu hợp lệ!","error"); return; }
+      document.getElementById('rowCountDesc').innerText = `Tổng: ${excelData.length} khách hàng`;
+      new bootstrap.Modal(document.getElementById('previewModal')).show();
+    };
+    reader.readAsArrayBuffer(file); input.value = '';
+  }
+
+  async function uploadAll() {
+    const targetUserId = document.getElementById('targetUserSelect').value;
+    const btn = document.getElementById('btnUpload');
+    if (!targetUserId) { showNotice("Cảnh báo","Chọn User nhận khách đi!","warning"); return; }
+    if (!confirm(`Xác nhận nhập ${excelData.length} khách?`)) return;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+    try {
+      const response = await fetch('/admin/import-customers', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customers: excelData, targetUserId })
+      });
+      const result = await response.json();
+      if (result.success) {
+        let msg = `Đã thêm ${result.count} khách hàng.`;
+        if (result.ignored > 0) msg += ` (bỏ qua ${result.ignored} đã có)`;
+        showNotice("Thành công", msg, "success"); location.reload();
+      } else { showNotice('Lỗi', result.message, "error"); btn.disabled = false; btn.innerHTML = 'Xác nhận thêm vào DB'; }
+    } catch (err) { showNotice('Lỗi','Lỗi kết nối!','error'); btn.disabled = false; }
+  }
+
+  function openExportModal(userId) {
+    const now = new Date();
+    document.getElementById('exportStartDate').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    document.getElementById('exportEndDate').value = now.toISOString().split('T')[0];
+    if (userId) document.getElementById('exportShopSelect').value = userId;
+    new bootstrap.Modal(document.getElementById('exportExcelModal')).show();
+  }
+
+  async function handleExportExcel() {
+    const select = document.getElementById('exportShopSelect');
+    const userId = select.value;
+    const username = select.options[select.selectedIndex]?.dataset?.username || userId;
+    const startDate = document.getElementById('exportStartDate').value;
+    const endDate = document.getElementById('exportEndDate').value;
+    const dateType = document.getElementById('exportDateType').value;
+    if (!userId) return alert("Chọn shop cần xuất!");
+    if (!startDate || !endDate) return alert("Chọn ngày!");
+    try {
+      const btn = document.querySelector('#exportExcelModal .btn-success');
+      const orig = btn.innerHTML; btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang tạo...';
+      const res = await fetch(`/admin/export-orders?userId=${userId}&start=${startDate}&end=${endDate}&dateType=${dateType}`);
+      if (!res.ok) throw new Error("Không có dữ liệu trong khoảng này!");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url;
+      a.download = `Van_Don_${username}_${startDate}_to_${endDate}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      btn.disabled = false; btn.innerHTML = orig;
+      bootstrap.Modal.getInstance(document.getElementById('exportExcelModal')).hide();
+    } catch (err) {
+      alert(err.message);
+      const btn = document.querySelector('#exportExcelModal .btn-success');
+      btn.disabled = false; btn.innerHTML = '<i class="fas fa-download me-1"></i> Tải về (.xlsx)';
+    }
+  }
+
+  function closeAdminJTModal() { document.getElementById('admin-jt-modal').style.display = 'none'; }
+
+  async function openAdminJTModal(userData) {
+    if (typeof userData === 'string') userData = JSON.parse(userData);
+    document.getElementById('target-user-id').innerText = userData.id;
+    document.getElementById('input-target-id').value = userData.id;
+    const g = v => (v && v !== 'null' && v !== 'undefined') ? v : '';
+    document.getElementById('adm_jt_name').value = g(userData.jt_shopname);
+    document.getElementById('adm_jt_sdt').value = g(userData.jt_sdt);
+    document.getElementById('adm_jt_addr').value = g(userData.jt_shopaddress);
+    document.getElementById('adm_jt_dist').innerHTML = '<option>-- Chọn Huyện --</option>';
+    document.getElementById('adm_jt_ward').innerHTML = '<option>-- Chọn Xã --</option>';
+    document.getElementById('admin-jt-modal').style.display = 'flex';
+    const p = g(userData.jt_shop_prov), d = g(userData.jt_shop_district), w = g(userData.jt_shop_ward);
+    await loadProvincesAdmin(p);
+    if (p) { await loadDistrictsAdmin(p, d); if (d) await loadWardsAdmin(p, d, w); }
+  }
+
+  async function loadProvincesAdmin(sel, targetId = 'adm_jt_prov') {
+    const res = await fetch('/api/address/provinces');
+    const provinces = await res.json();
+    const select = document.getElementById(targetId);
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Chọn Tỉnh --</option>';
+    provinces.forEach(p => { select.innerHTML += `<option value="${p}" ${p===sel?'selected':''}>${p}</option>`; });
+  }
+
+  async function loadDistrictsAdmin(prov, sel, targetId = 'adm_jt_dist') {
+    if (!prov) return;
+    const res = await fetch(`/api/address/districts?prov=${encodeURIComponent(prov)}`);
+    const districts = await res.json();
+    const select = document.getElementById(targetId);
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Chọn Huyện --</option>';
+    districts.forEach(d => { select.innerHTML += `<option value="${d}" ${d===sel?'selected':''}>${d}</option>`; });
+  }
+
+  async function loadWardsAdmin(prov, dist, sel, targetId = 'adm_jt_ward') {
+    if (!dist) return;
+    const res = await fetch(`/api/address/wards?prov=${encodeURIComponent(prov)}&district=${encodeURIComponent(dist)}`);
+    const wards = await res.json();
+    const select = document.getElementById(targetId);
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Chọn Xã --</option>';
+    wards.forEach(w => { select.innerHTML += `<option value="${w}" ${w===sel?'selected':''}>${w}</option>`; });
+  }
+
+  async function submitAdminJT() {
+    const form = document.getElementById('admin-jt-form');
+    const data = Object.fromEntries(new FormData(form).entries());
+    const required = { jt_shopname:"Tên Shop", jt_sdt:"Số điện thoại", jt_shopaddress:"Địa chỉ", jt_shop_prov:"Tỉnh", jt_shop_district:"Huyện", jt_shop_ward:"Xã" };
+    for (const [k, label] of Object.entries(required)) {
+      if (!data[k]?.trim()) { alert(`Nhập: ${label}`); form.querySelector(`[name="${k}"]`)?.focus(); return; }
+    }
+    try {
+      const res = await fetch('/api/admin/update-user-jt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      const result = await res.json();
+      if (result.success) { alert("Cập nhật kho J&T thành công!"); location.reload(); }
+      else alert("Lỗi: " + result.message);
+    } catch (e) { alert("Lỗi kết nối!"); }
+  }
+
+  let currentOrderData = null, searchResults = [];
+
+  async function searchBillAdmin() {
+    const code = document.getElementById('search-bill-code').value.trim();
+    if (!code) return alert("Nhập mã đơn!");
+    const res = await fetch(`/api/admin/get-order?code=${encodeURIComponent(code)}`);
+    const data = await res.json();
+    if (data.success) {
+      searchResults = data.orders;
+      document.getElementById('bill-result-area').style.display = 'block';
+      document.getElementById('bill-result-body').innerHTML = data.orders.map((order, i) => `
+        <tr>
+          <td>${order.user_id}</td>
+          <td style="font-family:'Arimo',sans-serif;font-size:.82rem;">${order.realjtbillcode || order.order_code}</td>
+          <td>${order.customer_name}</td>
+          <td>${order.customer_phone}</td>
+          <td><span class="badge-status active">${order.status}</span></td>
+          <td><button class="btn-ghost" onclick="prepareEditOrder(${i})"><i class="fas fa-edit"></i> Sửa</button></td>
+        </tr>`).join('');
+    }
+  }
+
+  function prepareEditOrder(i) { currentOrderData = searchResults[i]; if (currentOrderData) openEditOrderModal(); }
+
+  async function openEditOrderModal() {
+    if (!currentOrderData) return;
+    document.getElementById('modal-edit-order').style.display = 'flex';
+    ['edit-order-id','edit-cust-name','edit-cust-phone','edit-cust-addr','edit-cust-cod','edit-cust-kg','edit-cust-id'].forEach(id => {
+      const map = { 'edit-order-id':'id','edit-cust-name':'customer_name','edit-cust-phone':'customer_phone','edit-cust-addr':'customer_address','edit-cust-cod':'price','edit-cust-kg':'weight','edit-cust-id':'user_id' };
+      document.getElementById(id).value = currentOrderData[map[id]] || '';
+    });
+    await loadProvincesAdmin(currentOrderData.jt_prov, 'edit_jt_prov');
+    await loadDistrictsAdmin(currentOrderData.jt_prov, currentOrderData.jt_district, 'edit_jt_dist');
+    await loadWardsAdmin(currentOrderData.jt_prov, currentOrderData.jt_district, currentOrderData.jt_ward, 'edit_jt_ward');
+  }
+
+  async function saveOrderUpdate() {
+    const f = id => document.getElementById(id).value;
+    if (!f('edit-cust-name') || !f('edit-cust-phone')) return alert("Nhập đủ Tên và SĐT!");
+    const data = {
+      id: f('edit-order-id'), customer_name: f('edit-cust-name').trim(),
+      customer_phone: f('edit-cust-phone').trim(), customer_address: f('edit-cust-addr').trim(),
+      price: parseFloat(f('edit-cust-cod')) || 0, custId: f('edit-cust-id'),
+      kg: f('edit-cust-kg') || 1, jt_prov: f('edit_jt_prov'),
+      jt_district: f('edit_jt_dist'), jt_ward: f('edit_jt_ward')
+    };
+    try {
+      const res = await fetch('/api/admin/update-order', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+      const result = await res.json();
+      if (result.success) { alert("✅ Cập nhật thành công!"); document.getElementById('modal-edit-order').style.display = 'none'; location.reload(); }
+      else alert("❌ Lỗi: " + result.message);
+    } catch (e) { alert("Lỗi kết nối!"); }
+  }
+</script>
+
+<%- include('partials/footer', { active: 'admin_dashboard' }) %>

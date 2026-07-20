@@ -1,0 +1,781 @@
+<%- include('partials/header') %>
+
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="fw-bold">👥 Khách hàng</h3>
+            <button class="btn btn-primary shadow-sm px-4" onclick="openAddModal()">
+                <i class="fa-solid fa-user-plus"></i>
+            </button>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <form action="/customers" method="GET" class="d-flex gap-2">
+                <input type="text" name="search" class="form-control form-control-sm" placeholder="Tìm tên, SĐT..."
+                    value="<%= search %>">
+                <button type="submit" class="btn btn-primary btn-sm">Tìm</button>
+                <% if (isFiltering) { %>
+                    <a href="/customers" class="btn btn-outline-secondary btn-sm">Xóa lọc</a>
+                    <% } %>
+            </form>
+        </div>
+
+        <% if (!isFiltering) { %>
+            <div class="alert alert-light border py-1 px-3 mb-2" style="font-size: 0.8rem;">
+                <i class="fas fa-info-circle text-info"></i>
+                Đang hiển thị 50 khách hàng mới nhất. Sử dụng ô tìm kiếm để tìm khách hàng cũ hơn.
+            </div>
+            <% } %>
+
+                <div class="card shadow-sm border-0 rounded-3 desktop-view">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="ps-3">Khách hàng</th>
+                                    <th>Số điện thoại</th>
+                                    <th>Địa chỉ</th>
+                                    <th class="text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (customers && customers.length> 0) { %>
+                                    <% customers.forEach(c=> { %>
+                                        <tr>
+                                            <td class="ps-3 fw-bold text-primary">
+                                                <%= c.name %>
+                                            </td>
+                                            <td>
+                                                <%= c.phone %>
+                                            </td>
+                                            <td>
+                                                <div class="table-address">
+                                                    <%= c.address %>
+                                                </div>
+                                            </td>
+                                            <td class="text-center"><button
+                                                    class="btn btn-sm btn-outline-success btn-quick-order"
+                                                    data-id="<%= c.id %>" data-name="<%= c.name %>"
+                                                    data-phone="<%= c.phone %>" data-address="<%= c.address %>"
+                                                    data-prov="<%= c.prov || '' %>" data-dist="<%= c.district || '' %>"
+                                                    data-ward="<%= c.ward || '' %>" data-newward="<%= c.newward || '' %>" data-newprov="<%= c.newprov || '' %>">
+                                                    <i class="fas fa-truck-fast"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-primary me-1 btn-edit-customer"
+                                                    data-id="<%= c.id %>" data-name="<%= c.name %>" data-phone="<%= c.phone %>" data-address="<%= c.address %>"><i
+                                                        class="fa-solid fa-pen-to-square"></i></button>
+                                                <button class="btn btn-sm btn-outline-danger btn-delete-customer"
+                                                    data-id="<%= c.id %>" data-name="<%= c.name %>"><i
+                                                        class="fa-solid fa-trash-can"></i></button>
+                                            </td>
+                                        </tr>
+                                        <% }) %>
+                                            <% } else { %>
+                                                <tr>
+                                                    <td colspan="4" class="text-center py-4 text-muted">Không tìm thấy
+                                                        kết quả
+                                                    </td>
+                                                </tr>
+                                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mobile-view">
+                    <% if (customers && customers.length> 0) { %>
+                        <% customers.forEach(c=> { %>
+                            <div
+                                class="customer-card shadow-sm border-start border-primary border-4 mb-3 p-3 bg-white rounded-3 position-relative">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <span class="card-label">Họ và tên</span>
+                                        <div class="fw-bold text-primary fs-5">
+                                            <%= c.name %>
+                                        </div>
+                                    </div>
+                                    <div class="dropdown">
+                                        <button class="btn btn-light btn-sm rounded-circle" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><button class="dropdown-item text-success btn-quick-order"
+                                                    data-id="<%= c.id %>" data-name="<%= c.name %>"
+                                                    data-phone="<%= c.phone %>" data-address="<%= c.address %>"
+                                                    data-prov="<%= c.prov || '' %>" data-dist="<%= c.district || '' %>"
+                                                    data-ward="<%= c.ward || '' %>" data-newward="<%= c.newward || '' %>" data-newprov="<%= c.newprov || '' %>"> 
+                                                    <i class="fa-solid fa-truck-fast"></i> Lên Đơn
+                                                </button></li>
+                                            <li><a class="dropdown-item text-primary btn-edit-customer" href="javascript:void(0)"
+                                                    data-id="<%= c.id %>" data-name="<%= c.name %>" data-phone="<%= c.phone %>" data-address="<%= c.address %>">
+                                                    <i class="fas fa-edit me-2"></i>Sửa</a></li>
+                                            <li><a class="dropdown-item text-danger btn-delete-customer" href="javascript:void(0)"
+                                                    data-id="<%= c.id %>" data-name="<%= c.name %>">
+                                                    <i class="fas fa-trash me-2"></i>Xóa</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <span class="card-label">Số điện thoại</span>
+                                        <div class="small fw-bold"><i class="fas fa-phone-alt me-1 text-muted"></i>
+                                            <%= c.phone %>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 text-end">
+                                        <span class="card-label">Ngày tạo</span>
+                                        <div class="small text-muted">
+                                            <%= new Date(c.created_at).toLocaleDateString('vi-VN') %>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 mt-2 pt-2 border-top">
+                                        <span class="card-label">Địa chỉ nhận hàng</span>
+                                        <div class="small text-dark"><i
+                                                class="fas fa-map-marker-alt me-1 text-danger"></i>
+                                            <%= c.address %>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <% }) %>
+                                <% } %>
+                </div>
+    </div>
+
+    <div id="customer-popup-overlay" class="custom-overlay">
+        <div class="custom-popup shadow-lg">
+            <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0" id="popup-title">Thêm khách hàng mới</h5>
+                <button type="button" class="btn-close btn-close-white" onclick="closePopup()"></button>
+            </div>
+            <form id="customerForm" class="p-3">
+                <input type="hidden" id="customer_id" name="id">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Họ và tên</label>
+                    <input type="text" id="cust_name" name="name" class="form-control" placeholder="Nguyễn Văn A"
+                        required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Số điện thoại</label>
+                    <input type="text" id="cust_phone" name="phone" class="form-control" placeholder="09xxx" required>
+                </div>
+                <div class="mb-3" style="position:relative;">
+                    <label class="form-label small fw-bold">Địa chỉ nhận hàng</label>
+                    <textarea id="cust_address" name="address" class="form-control" rows="3" autocomplete="off" placeholder="Số nhà, tên đường, phường/xã..."></textarea>
+                    <div id="addr-suggestions" style="display:none; background:#fff; border:1px solid #dee2e6; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.15);"></div>
+                </div>
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <button type="button" class="btn btn-light" onclick="closePopup()">Hủy</button>
+                    <button type="submit" class="btn btn-primary px-4" id="btnSave">Lưu thông tin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="quick-order-overlay" class="custom-overlay" style="display:none;">
+        <div class="custom-popup-content shadow-lg" style="max-width: 500px;">
+            <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">🚀 LÊN ĐƠN NHANH</h6>
+                <button type="button" class="btn-close btn-close-white" onclick="closeQuickOrder()"></button>
+            </div>
+            <form id="quickOrderForm" class="p-3">
+                <div class="mb-3">
+                    <label class="small fw-bold d-block mb-2">Đơn vị vận chuyển</label>
+                    <div class="btn-group w-100">
+                        <input type="radio" class="btn-check" name="provider" id="qo_jtBtn" value="J&T" checked
+                            onchange="toggleQuickProvider(this.value)">
+                        <label class="btn btn-outline-primary btn-sm" for="qo_jtBtn">J&T Express</label>
+                        <input type="radio" class="btn-check" name="provider" id="qo_vtpBtn" value="Viettel"
+                            onchange="toggleQuickProvider(this.value)">
+                        <label class="btn btn-outline-danger btn-sm" for="qo_vtpBtn">Viettel Post</label>
+                        <input type="radio" class="btn-check" name="provider" id="qo_nbBtn" value="NB"
+                            onchange="toggleQuickProvider(this.value)">
+                        <label class="btn btn-outline-danger btn-sm" for="qo_nbBtn">Biên Hòa</label>
+                    </div>
+                </div>
+
+                <div id="qo_jtShopSection" class="p-2 rounded mb-3 border bg-light">
+                    <div class="small text-primary fw-bold mb-1">
+                        <i class="fas fa-warehouse"></i> KHO GỬI J&T
+                    </div>
+                    <div class="row g-1">
+                        <div class="col-6">
+                            <input type="text" name="jt_shopname" class="form-control form-control-sm bg-white"
+                                value="<%= stats.jt_shopname %>" readonly>
+                        </div>
+                        <div class="col-6">
+                            <input type="text" name="jt_sdt" class="form-control form-control-sm bg-white"
+                                value="<%= stats.jt_sdt %>" readonly>
+                        </div>
+                        <div class="col-12 mt-1">
+                            <% let fullAddr=[stats.jt_shopaddress, stats.jt_shop_ward, stats.jt_shop_district,
+                                stats.jt_shop_prov].filter(Boolean).join(', ');%>
+                                <input type="text" class="form-control form-control-sm bg-white" value="<%= fullAddr %>" readonly>
+            
+                                <input type="hidden" name="jt_shopaddress" value="<%= stats.jt_shopaddress %>">
+                                <input type="hidden" name="jt_shop_ward" value="<%= stats.jt_shop_ward %>">
+                                <input type="hidden" name="jt_shop_district" value="<%= stats.jt_shop_district %>">
+                                <input type="hidden" name="jt_shop_prov" value="<%= stats.jt_shop_prov %>">
+                            </div>
+                        </div>
+                    </div>
+
+            <div id="qo_vtpShopSection" class="d-none p-2 rounded mb-3 border bg-light">
+                <div class="small text-danger fw-bold">KHO GỬI VIETTEL</div>
+                <div class="small text-dark">SĐT: <span><%= stats.vtp_shop_phone %></span></div>
+                <div class="small text-muted text-truncate">Đ/C: <span><%= stats.vtp_shop_address %></span></div>
+            </div>
+
+            <div class="row g-2">
+                <div class="col-12">
+                    <label class="small fw-bold">Người nhận</label>
+                    <input type="text" name="customer_name" id="qo_name" class="form-control" readonly>
+                </div>
+                <div class="col-12">
+                    <label class="small fw-bold">Số điện thoại</label>
+                    <input type="text" name="customer_phone" id="qo_phone" class="form-control" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Địa chỉ người nhận</label>
+                    <div class="input-group">
+                        <input type="text" id="qo_address" name="address" class="form-control"
+                            placeholder="Số nhà, tên đường..." oninput="checkAddressChangeQO()">
+                        <button type="button" id="btn_fix_addr_qo" class="btn btn-outline-danger d-none"
+                            onclick="validateAddressQO()">
+                            <i class="fas fa-magic"></i> Kiểm tra
+                        </button>
+                    </div>
+                    <div id="qo_addr_msg" class="mt-1"></div>
+                    <input type="hidden" id="qo_prov" name="province">
+                    <input type="hidden" id="qo_district" name="district">
+                    <input type="hidden" id="qo_ward" name="ward">
+                    <input type="hidden" id="newward" name="newward">
+                    <input type="hidden" id="newprov" name="newprov">
+                </div>
+                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="is_new_address"
+                                        name="is_new_address">
+                                    <label class="form-check-label fw-bold text-primary" for="is_new_address">
+                                        Dùng địa chỉ 2 cấp
+                                    </label>
+                                </div>
+                <div class="col-6">
+                    <label class="small fw-bold">COD (vnđ)</label>
+                    <input type="text" pattern="[0-9.]+" inputmode="numeric" name="cod" id="qo_cod" class="form-control" value="0" onkeyup="onlyNumberAmount(this)">
+                </div>
+                <div class="col-6">
+                    <label class="small fw-bold">Cân nặng (kg)</label>
+                    <input type="number" name="weight" step="0.1" id="qo_weight" class="form-control" value="1">
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold text-primary">Ghi chú giao hàng</label>
+                    <input 
+    list="note-options" 
+    name="note" 
+    class="form-control form-control-sm border-primary shadow-none" 
+    placeholder="Chọn hoặc tự nhập ghi chú..."
+    value="<%= (notes && notes.length > 0) ? notes[0].content : '' %>"
+>
+
+<datalist id="note-options">
+    <% if (notes && notes.length > 0) { %>
+        <% notes.forEach((note) => { %>
+            <option value="<%= note.content %>">
+        <% }) %>
+    <% } else { %>
+        <option value="Cho xem hàng không cho thử">
+        <option value="Giao giờ hành chính">
+    <% } %>
+</datalist>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="is_partial_delivery"
+                                name="is_partial_delivery" checked>
+                            <label class="form-check-label fw-bold text-primary" for="is_partial_delivery">
+                                Giao hàng 1 phần
+                            </label>
+                            <div class="small text-muted" style="font-size: 0.7rem;">Áp dụng cho J&T. Viettel mặc định
+                                có GH1P rồi.</div>
+                        </div>
+                        
+                        <div class="col-12">
+                            <div class="p-2 rounded bg-light border">
+                                <div class="d-flex justify-content-between small">
+                                    <span class="text-muted">Cước phí:</span>
+                                    <span id="qo_fee_text" class="fw-bold text-danger">0đ</span>
+                                </div>
+                                <div class="d-flex justify-content-between small mt-1">
+                                    <span class="text-muted">Thực nhận:</span>
+                                    <span id="qo_received_text" class="fw-bold text-success">0đ</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="small fw-bold">Tên hàng</label>
+                            <input 
+    list="product-options" 
+    name="product_name" 
+    class="form-control form-control-sm border-primary shadow-none" 
+    placeholder="Chọn hoặc tự nhập tên sản phẩm..."
+    value="<%= (products && products.length > 0) ? products[0].product_name : '' %>"
+>
+
+<datalist id="product-options">
+    <% if (products && products.length > 0) { %>
+        <% products.forEach((product) => { %>
+            <option value="<%= product.product_name %>">
+        <% }) %>
+    <% } else { %>
+        <option value="Quần áo">
+        <option value="Giày dép">
+    <% } %>
+</datalist>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="closeQuickOrder()">Hủy</button>
+                        <button type="submit" id="btnSubmitQuick" class="btn btn-sm btn-primary px-4"><i class="fa-solid fa-truck-fast"></i> Lên Đơn</button>
+                    </div>
+            </form>
+        </div>
+    </div>
+    <div id="confirm-popup-overlay"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000002; justify-content: center; align-items: center;">
+        <div class="custom-popup-content shadow-lg text-center p-4"
+            style="max-width: 350px; border-radius: 20px; background: #fff;">
+            <div class="mb-3"><i class="fas fa-question-circle text-warning" style="font-size: 3rem;"></i></div>
+            <h5 class="fw-bold text-dark">Xác nhận xóa khách hàng?</h5>
+            <p id="confirm-message" class="text-muted small"></p>
+            <div class="d-grid gap-2 mt-4">
+                <button type="button" id="btn-confirm-action" class="btn btn-danger py-2 fw-bold">XÓA KHÁCH</button>
+                <button type="button" class="btn btn-light py-2" onclick="closeConfirm()">QUAY LẠI</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirm-popup-overlay" class="custom-overlay" style="display:none">...</div>
+
+
+    <script>
+
+        const DB_BASE_PRICE = Number("<%= stats.base_price %>") || 0;
+        const DB_STEP_PRICE = Number("<%= stats.step_price %>") || 0;
+        function checkAddressChangeQO() {
+            const addrInput = document.getElementById('qo_address');
+            const btnFix = document.getElementById('btn_fix_addr_qo');
+
+            if (addrInput.value.trim().length > 5) {
+                btnFix.classList.remove('d-none');
+                btnFix.style.display = 'inline-block';
+            } else {
+                btnFix.classList.add('d-none');
+            }
+
+            ['qo_prov','qo_district','qo_ward','newward','newprov'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const msg = document.getElementById('qo_addr_msg');
+            if (msg) msg.innerHTML = '<small class="text-warning fw-bold">⚠️ Địa chỉ đã thay đổi, chưa được kiểm tra!</small>';
+        }
+        function updateQuickFee() {
+            const cod = parseFloat(document.getElementById('qo_cod').value.toString().replace(/\D/g, '')) || 0;
+            const weight = parseFloat(document.getElementById('qo_weight').value) || 0;
+
+            if (DB_BASE_PRICE === 0) {
+                document.getElementById('qo_fee_text').innerText = "Chưa set giá";
+                return;
+            }
+
+            let fee = DB_BASE_PRICE;
+            if (weight > 2.0) {
+                fee += Math.ceil(weight - 2.0) * DB_STEP_PRICE;
+            }
+
+            document.getElementById('qo_fee_text').innerText = Math.floor(fee).toLocaleString() + "đ";
+            document.getElementById('qo_received_text').innerText = Math.floor(cod - fee).toLocaleString() + "đ";
+        }
+
+        document.getElementById('qo_cod').addEventListener('input', updateQuickFee);
+        document.getElementById('qo_weight').addEventListener('input', updateQuickFee);
+
+        function openQuickOrderModal(id, name, phone, address, prov, dist, ward, newward, newprov) {
+            document.getElementById('quickOrderForm').reset();
+            document.getElementById('qo_vtpShopSection').classList.add('d-none');
+
+            document.getElementById('qo_name').value = name;
+            document.getElementById('qo_phone').value = phone;
+            document.getElementById('qo_address').value = address;
+            document.getElementById('qo_weight').value = "0.5";
+
+            document.getElementById('qo_prov').value = prov || '';
+            document.getElementById('qo_district').value = dist || '';
+            document.getElementById('qo_ward').value = ward || '';
+            document.getElementById('newward').value = newward || '';
+            document.getElementById('newprov').value = newprov || '';
+
+            const btnFix = document.getElementById('btn_fix_addr_qo');
+            const msg = document.getElementById('qo_addr_msg');
+
+            if (!prov || !dist || !ward) {
+                btnFix.classList.remove('d-none');
+                msg.innerHTML = '<small class="text-danger fw-bold">⚠️ Địa chỉ chưa được kiểm tra!</small>';
+            } else if (!newward || !newprov) {
+                btnFix.classList.remove('d-none');
+                msg.innerHTML = '<small class="text-warning fw-bold">⚠️ Địa chỉ chưa đủ thông tin J&T! Bấm Kiểm tra lại.</small>';
+            } else {
+                btnFix.classList.add('d-none');
+                msg.innerHTML = `<b><small class="text-success fw-bold">✅ Địa chỉ 3 cấp: ${ward}, ${dist}, ${prov}<br>✅ Địa chỉ 2 cấp: ${newward}, ${newprov}</small></b>`;
+            }
+
+            document.getElementById('quick-order-overlay').style.display = 'flex';
+            updateQuickFee();
+        }
+
+        async function validateAddressQO() {
+            const addr = document.getElementById('qo_address').value;
+            const phone = document.getElementById('qo_phone').value;
+            const name = document.getElementById('qo_name').value;
+            const btn = document.getElementById('btn_fix_addr_qo');
+            const msg = document.getElementById('qo_addr_msg');
+
+            if (!addr) return showNotice("Cảnh báo","Nhập địa chỉ trước đã bác!", "warning");
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+            try {
+                const res = await fetch('/api/validate-address', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: addr, phone: phone, name: name })
+                });
+
+                const result = await res.json();
+
+                if (result.success) {
+                    document.getElementById('qo_prov').value = result.data.prov;
+                    document.getElementById('qo_district').value = result.data.district;
+                    document.getElementById('qo_ward').value = result.data.ward;
+                    document.getElementById('newward').value = result.data.newward;
+                    document.getElementById('newprov').value = result.data.newprov;
+
+                    const phone = document.getElementById('qo_phone').value;
+                    const name = document.getElementById('qo_name').value;
+                    const addr = document.getElementById('qo_address').value;
+
+                    const actionButtons = document.querySelectorAll(`[data-phone="${phone}"]`);
+
+                    actionButtons.forEach(btn => {
+                        btn.dataset.prov = result.data.prov;
+                        btn.dataset.dist = result.data.district;
+                        btn.dataset.ward = result.data.ward;
+                        btn.dataset.newward = result.data.newward;
+                        btn.dataset.newprov = result.data.newprov;
+                        const newOnClick = `openQuickOrderModal('', '${name}', '${phone}', '${addr}', '${result.data.prov}', '${result.data.district}', '${result.data.ward}', '${result.data.newward}', '${result.data.newprov}')`;
+                        btn.setAttribute('onclick', newOnClick);
+                    });
+
+                    btn.classList.add('d-none');
+                    msg.innerHTML = `<small class="text-success fw-bold">✅ Chuẩn hóa thành công: ${result.data.fullStr}<br>${result.data.newward}, ${result.data.newprov}</small>`;
+
+                    window.shouldReload = true;
+                } else {
+                    showNotice("Lỗi", result.message, "error");
+                }
+            } catch (e) {
+                showNotice("Lỗi","Lỗi kết nối server!", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-magic"></i> Chuẩn hóa';
+            }
+        }
+
+
+        function closeQuickOrder() {
+            document.getElementById('quick-order-overlay').style.display = 'none';
+        }
+
+        function toggleQuickProvider(val) {
+            const jtSec = document.getElementById('qo_jtShopSection');
+            const vtpSec = document.getElementById('qo_vtpShopSection');
+
+            if (jtSec && vtpSec) {
+                if(val === 'NB'){
+                    vtpSec.classList.add('d-none');
+                    jtSec.classList.add('d-none');
+                } else if (val === 'J&T') {
+                    jtSec.classList.remove('d-none');
+                    vtpSec.classList.add('d-none');
+                } else {
+                    jtSec.classList.add('d-none');
+                    vtpSec.classList.remove('d-none');
+                }
+            }
+        }
+
+        document.getElementById('quickOrderForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnSubmitQuick');
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            data.is_partial_delivery = e.target.querySelector('#is_partial_delivery')?.checked ? 1 : 0;
+
+            if (!data.ward) return showNotice("Cảnh báo", "Bấm nút Kiểm tra địa chỉ trước nha!", "warning");
+            if (!data.newward || !data.newprov) return showNotice("Cảnh báo", "Địa chỉ chưa được kiểm tra hoặc không tìm thấy vùng J&T. Vui lòng bấm Kiểm tra lại!", "warning");
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang đẩy...';
+
+            try {
+                const res = await fetch('/api/orders/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    closeQuickOrder();
+                    showNotice("Thành công", "Đã tạo đơn " + data.provider + ": " + (result.vtp_id || ""), "success");
+                } else {
+                    showNotice("Lỗi", result.message, "error");
+                }
+            } catch (err) {
+                showNotice("Lỗi", "Không thể kết nối server", "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Đẩy đơn ngay';
+            }
+        };
+
+        let isEditMode = false;
+        let pendingDeleteId = null;
+
+        function openAddModal() {
+            isEditMode = false;
+            document.getElementById('popup-title').innerText = "Thêm khách hàng mới";
+            document.getElementById('customerForm').reset();
+            document.getElementById('customer_id').value = "";
+            document.getElementById('customer-popup-overlay').style.display = 'flex';
+        }
+
+        function openEditModal(id, name, phone, address) {
+            isEditMode = true;
+            document.getElementById('popup-title').innerText = "Sửa thông tin khách hàng";
+            document.getElementById('customer_id').value = id;
+            document.getElementById('cust_name').value = name;
+            document.getElementById('cust_phone').value = phone;
+            document.getElementById('cust_address').value = address;
+            document.getElementById('customer-popup-overlay').style.display = 'flex';
+        }
+
+        function closePopup() {
+            document.getElementById('customer-popup-overlay').style.display = 'none';
+        }
+
+        document.getElementById('customerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('btnSave');
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang xử lý...';
+
+            const url = isEditMode ? '/customers/edit' : '/customers/add';
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!res.ok) throw new Error("Server trả về lỗi " + res.status);
+
+                const result = await res.json();
+
+                if (result.success) {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Lưu thông tin';
+                    closePopup();
+                    showNotice("Thành công", isEditMode ? `Cập nhật thành công: ${result.xa}, ${result.huyen}, ${result.tinh}` : `Đã thêm khách hàng với địa chỉ: ${result.xa}, ${result.huyen}, ${result.tinh}`, "success");
+                    window.shouldReload = true;
+                } else {
+                    showNotice("Lỗi", result.message || "Có lỗi xảy ra", "error");
+                    btn.disabled = false;
+                    btn.innerHTML = 'Lưu thông tin';
+                }
+            } catch (err) {
+                console.error("Lỗi Fetch:", err);
+                showNotice("Lỗi", "Không kết nối được server hoặc lỗi mạng", "error");
+                btn.disabled = false;
+                btn.innerHTML = 'Lưu thông tin';
+            }
+        });
+
+        function confirmDelete(id, name) {
+            pendingDeleteId = id;
+            document.getElementById('confirm-message').innerText = `Bạn chắc chắn muốn xóa khách hàng "${name}"?`;
+            document.getElementById('confirm-popup-overlay').style.display = 'flex';
+            document.getElementById('btn-confirm-action').onclick = executeDelete;
+        }
+
+        function closeConfirm() { document.getElementById('confirm-popup-overlay').style.display = 'none'; }
+
+        async function executeDelete() {
+            closeConfirm();
+            try {
+                const res = await fetch(`/customers/delete/${pendingDeleteId}`, { method: 'POST' });
+                const result = await res.json();
+                if (result.success) {
+                    showNotice("Thành công", "Đã xóa khách hàng.", "success");
+                    window.shouldReload = true;
+                } else {
+                    showNotice("Lỗi", result.message, "error");
+                }
+            } catch (err) {
+                showNotice("Lỗi", "Lỗi server", "error");
+            }
+        }
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.btn-quick-order')) {
+                const btn = e.target.closest('.btn-quick-order');
+                const id = btn.dataset.id;
+                const name = btn.dataset.name;
+                const phone = btn.dataset.phone;
+                const address = btn.dataset.address;
+                const prov = btn.dataset.prov;
+                const dist = btn.dataset.dist;
+                const ward = btn.dataset.ward;
+                const newward = btn.dataset.newward;
+                const newprov = btn.dataset.newprov;
+                openQuickOrderModal(id, name, phone, address, prov, dist, ward, newward, newprov);
+            }
+            if (e.target.closest('.btn-edit-customer')) {
+                const btn = e.target.closest('.btn-edit-customer');
+                openEditModal(btn.dataset.id, btn.dataset.name, btn.dataset.phone, btn.dataset.address);
+            }
+            if (e.target.closest('.btn-delete-customer')) {
+                const btn = e.target.closest('.btn-delete-customer');
+                confirmDelete(btn.dataset.id, btn.dataset.name);
+            }
+        });
+
+
+        (function() {
+            const textarea = document.getElementById('cust_address');
+            const box = document.getElementById('addr-suggestions');
+            let debounceTimer = null;
+            let lastQuery = '';
+
+            function normalize(str) {
+                return str.toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/đ/g, 'd').replace(/Đ/g, 'd');
+            }
+
+            function extractStreetPart(text) {
+                const adminKeywords = /\b(phường|phuong|xã|xa|quận|quan|huyện|huyen|thị trấn|thi tran|tỉnh|tinh|thành phố|thanh pho|tp\.?|p\.)\b/i;
+                const normText = normalize(text);
+                const normKeywords = /(phuong|xa|quan|huyen|thi tran|tinh|thanh pho|tp\.?|p\.)\b/i;
+                const match = normText.match(normKeywords);
+                if (match) {
+                    const idx = match.index;
+                    const before = text.substring(0, idx);
+                    const lastComma = before.lastIndexOf(',');
+                    if (lastComma !== -1) return text.substring(0, lastComma).trimEnd();
+                    return ''; 
+                }
+                const lastComma = text.lastIndexOf(',');
+                if (lastComma !== -1) return text.substring(0, lastComma).trimEnd();
+                return text.trimEnd();
+            }
+
+            function positionBox() {
+                const rect = textarea.getBoundingClientRect();
+                box.style.position = 'fixed';
+                box.style.width = rect.width + 'px';
+                box.style.left = rect.left + 'px';
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const boxH = Math.min(220, items_count * 56);
+                if (spaceBelow >= boxH || spaceBelow >= 120) {
+                    box.style.top = (rect.bottom + 2) + 'px';
+                    box.style.bottom = 'auto';
+                } else {
+                    box.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+                    box.style.top = 'auto';
+                }
+                box.style.zIndex = '99999';
+            }
+            let items_count = 0;
+
+            function showSuggestions(items) {
+                if (!items.length) { box.style.display = 'none'; return; }
+                items_count = items.length;
+                box.innerHTML = items.map((item) => `
+                    <div class="addr-item" data-ward="${item.ward}" data-district="${item.district}" data-province="${item.province}"
+                        style="padding:10px 14px; cursor:pointer; font-size:0.85rem; border-bottom:1px solid #f0f0f0; transition:background 0.15s;">
+                        <div class="fw-bold text-primary" style="font-size:0.8rem;">${item.ward}</div>
+                        <div class="text-muted" style="font-size:0.75rem;">${item.district}, ${item.province}</div>
+                    </div>
+                `).join('');
+                positionBox();
+                box.style.display = 'block';
+                box.style.maxHeight = '220px';
+                box.style.overflowY = 'auto';
+
+                box.querySelectorAll('.addr-item').forEach(el => {
+                    el.addEventListener('mouseenter', () => el.style.background = '#f0f7ff');
+                    el.addEventListener('mouseleave', () => el.style.background = '');
+                    el.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        const ward = el.dataset.ward;
+                        const district = el.dataset.district;
+                        const province = el.dataset.province;
+                        const streetPart = extractStreetPart(textarea.value);
+                        textarea.value = streetPart
+                            ? `${streetPart}, ${ward}, ${district}, ${province}`
+                            : `${ward}, ${district}, ${province}`;
+                        box.style.display = 'none';
+                        textarea.focus();
+                        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+                    });
+                });
+            }
+
+            textarea.addEventListener('input', function() {
+                clearTimeout(debounceTimer);
+                const val = this.value;
+                if (val.length < 2) { box.style.display = 'none'; return; }
+                if (normalize(val) === normalize(lastQuery)) return;
+                debounceTimer = setTimeout(async () => {
+                    lastQuery = val;
+                    try {
+                        const res = await fetch('/api/address-suggest?q=' + encodeURIComponent(val));
+                        const data = await res.json();
+                        showSuggestions(data);
+                    } catch(e) { box.style.display = 'none'; }
+                }, 280);
+            });
+
+            textarea.addEventListener('focus', () => { if (box.style.display !== 'none') positionBox(); });
+            window.addEventListener('resize', () => { if (box.style.display !== 'none') positionBox(); });
+            window.addEventListener('scroll', () => { if (box.style.display !== 'none') positionBox(); }, true);
+
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') box.style.display = 'none';
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('#addr-suggestions') && e.target !== textarea) {
+                    box.style.display = 'none';
+                }
+            });
+        })();
+    </script>
+
+    <%- include('partials/footer', { active: 'customers' }) %>

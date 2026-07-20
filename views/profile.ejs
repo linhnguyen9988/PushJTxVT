@@ -1,0 +1,573 @@
+<%- include('partials/header') %>
+
+    <div class="container py-2">
+        <div class="row g-4">
+            <div class="col-lg-5 text-center">
+                <div class="card shadow-sm border-0 p-4 mb-4">
+                    <div class="position-relative d-inline-block mx-auto">
+                        <img src="<%= typeof avatar !== 'undefined' && avatar ? avatar : '/uploads/default-avatar.png' %>"
+                            class="rounded-circle shadow border border-3 border-white"
+                            style="width: 130px; height: 130px; object-fit: cover;">
+                    </div>
+                    <h4 class="mt-3 mb-0 fw-bold text-dark">
+                        <%= user %>
+                    </h4>
+                    <p class="text-muted small">Quyền: <span class="badge bg-secondary">
+                            <%= role %>
+                        </span></p>
+
+                    <form action="/profile/upload-avatar" method="POST" enctype="multipart/form-data" class="mt-2">
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="file" name="avatar" class="form-control" accept="image/*" required>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary px-3">Cập nhật ảnh</button>
+                        <a class="btn btn-danger btn-sm text-white px-3" href="/logout">Đăng xuất</a>
+                    </form>
+                </div>
+
+                <div class="card shadow-sm border-0 p-4 text-start">
+                    <h6 class="fw-bold mb-3"><i class="fas fa-key me-2"></i>Đổi mật khẩu</h6>
+                    <%- include('partials/messages') %>
+                        <form action="/profile/change-password" method="POST">
+                            <div class="mb-2">
+                                <input type="password" name="oldPassword"
+                                    class="form-control form-control-sm shadow-none" placeholder="Mật khẩu hiện tại"
+                                    required>
+                            </div>
+                            <div class="mb-2">
+                                <input type="password" name="newPassword"
+                                    class="form-control form-control-sm shadow-none"
+                                    placeholder="Mật khẩu mới (min 4 ký tự)" minlength="4" required>
+                            </div>
+                            <div class="mb-3">
+                                <input type="password" name="confirmPassword"
+                                    class="form-control form-control-sm shadow-none" placeholder="Xác nhận mật khẩu mới"
+                                    required>
+                            </div>
+                            <button class="btn btn-outline-success btn-sm w-100 shadow-sm">Lưu thay đổi</button>
+                        </form>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+
+                <div class="row g-3 mb-4">
+
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm bg-white">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div class="fw-bold text-uppercase text-muted small">
+                                        <i class="fas fa-chart-bar me-1"></i> Thống kê đơn hàng
+                                    </div>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary stats-filter active" data-days="1">1N</button>
+                                        <button class="btn btn-outline-primary stats-filter" data-days="3">3N</button>
+                                        <button class="btn btn-outline-primary stats-filter" data-days="7">7N</button>
+                                        <button class="btn btn-outline-primary stats-filter" data-days="15">15N</button>
+                                        <button class="btn btn-outline-primary stats-filter" data-days="30">1T</button>
+                                    </div>
+                                </div>
+
+                                <!-- Tổng -->
+                                <div class="d-flex justify-content-between align-items-center p-2 rounded mb-2 bg-light border">
+                                    <span class="fw-bold small">📦 Tổng đơn</span>
+                                    <span class="fw-bold" id="s-total">--</span>
+                                </div>
+
+                                <!-- Các trạng thái -->
+                                <div id="stats-rows">
+                                    <div class="d-flex justify-content-between align-items-center px-2 py-1 rounded mb-1" style="background:#fff8e1;border:1px solid #ffe082">
+                                        <span class="small text-warning-emphasis">⏳ Chờ lấy hàng</span>
+                                        <span class="small"><span id="s-cnt-pending" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-pending" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center px-2 py-1 rounded mb-1" style="background:#e3f2fd;border:1px solid #90caf9">
+                                        <span class="small text-info-emphasis">📬 Đã lấy hàng</span>
+                                        <span class="small"><span id="s-cnt-picked_up" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-picked_up" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center px-2 py-1 rounded mb-1" style="background:#e8eaf6;border:1px solid #9fa8da">
+                                        <span class="small text-primary">🚚 Đang vận chuyển</span>
+                                        <span class="small"><span id="s-cnt-delivering" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-delivering" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center px-2 py-1 rounded mb-1" style="background:#e8f5e9;border:1px solid #a5d6a7">
+                                        <span class="small text-success">✅ Thành công</span>
+                                        <span class="small"><span id="s-cnt-completed" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-completed" class="text-success fw-bold">--</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center px-2 py-1 rounded mb-1" style="background:#f5f5f5;border:1px solid #bdbdbd">
+                                        <span class="small text-secondary">↩️ Đã hoàn hàng</span>
+                                        <span class="small"><span id="s-cnt-returned" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-returned" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center px-2 py-1 rounded mb-1" style="background:#fce4ec;border:1px solid #f48fb1">
+                                        <span class="small text-danger">⚠️ Kiện vấn đề</span>
+                                        <span class="small"><span id="s-cnt-issue" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-issue" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center px-2 py-1 rounded" style="background:#f5f5f5;border:1px solid #bdbdbd">
+                                        <span class="small text-secondary">🚫 Đã hủy</span>
+                                        <span class="small"><span id="s-cnt-cancel" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-cancel" class="text-muted">--</span></span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0 p-4 mt-4">
+                    <h6 class="fw-bold mb-3">
+                        <img src="/img/viettel.png" height="20" class="me-2"></i>Kho hàng Viettel Post
+                    </h6>
+
+                    <% if (typeof vtp_inventory_id !=='undefined' && vtp_inventory_id) { %>
+                        <div class="p-3 bg-light rounded border border-primary-subtle">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-primary me-2">ID: <%= vtp_inventory_id %></span>
+                                <strong class="text-primary">
+                                    <%= vtp_shop_name %>
+                                </strong>
+                            </div>
+                            <div class="small text-muted mb-1">
+                                <i class="fas fa-phone-alt me-2"></i>
+                                <%= vtp_shop_phone %>
+                            </div>
+                            <div class="small text-muted">
+                                <i class="fas fa-map-marker-alt me-2"></i>
+                                <%= vtp_shop_address %>
+                            </div>
+                        </div>
+                        <p class="text-muted mt-2 mb-0" style="font-size: 0.75rem;">
+                            * Đây là kho mặc định khi bạn tạo đơn hàng Viettel Post.
+                        </p>
+                        <% } else { %>
+                            <div class="p-3 bg-light rounded border border-warning">
+                                <div class="text-warning fw-bold small">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> Chưa có kho hàng
+                                </div>
+                                <div class="text-muted small">Vui lòng liên hệ Admin để được phân bổ kho hàng lấy
+                                    đơn.</div>
+                            </div>
+                            <% } %>
+                </div>
+
+                <div class="card shadow-sm border-0 p-4 mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <img src="/img/jte.png" height="20"> Kho J&T Express
+                        </h6>
+                    </div>
+
+                    <div class="p-3 bg-light rounded border border-primary-subtle">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-primary me-2">SĐT: <%= jt_sdt %></span>
+                            <strong class="text-primary">
+                                <%= jt_shopname %>
+                            </strong>
+                        </div>
+                        <div class="small text-muted">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            <%= jt_shopaddress %>, <%= jt_shop_ward %>, <%= jt_shop_district %>, <%= jt_shop_prov %>
+                        </div>
+                    </div>
+
+
+                    <p class="text-danger mt-2 mb-0" style="font-size: 0.7rem;">
+                        * Thông tin kho do Admin quản lý. Vui lòng liên hệ Admin nếu cần thay đổi.
+                    </p>
+                </div>
+                <div class="card shadow-sm border-0 p-4 mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <i class="fas fa-sticky-note text-warning me-2"></i>Ghi chú đơn hàng mẫu
+                        </h6>
+                        <button class="btn btn-sm btn-outline-primary" onclick="openNoteModal()">
+                            <i class="fas fa-plus"></i> Thêm mới
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nội dung ghi chú</th>
+                                    <th class="text-end" style="width: 80px;">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="note-list-body">
+                                <% if (typeof notes !=='undefined' && notes.length> 0) { %>
+                                    <% notes.forEach(note=> { %>
+                                        <tr id="note-row-<%= note.id %>">
+                                            <td>
+                                                <%= note.content %>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-link text-danger p-0"
+                                                    onclick="deleteNote('<%= note.id %>')">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <% }) %>
+                                            <% } else { %>
+                                                <tr>
+                                                    <td colspan="2" class="text-center text-muted py-3">Chưa có ghi chú mẫu nào</td>
+                                                </tr>
+                                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm border-0 p-4 mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <i class="fa-solid fa-boxes-stacked text-warning me-2"></i>Mặt hàng mẫu
+                        </h6>
+                        <button class="btn btn-sm btn-outline-primary" onclick="openProductModal()">
+                            <i class="fas fa-plus"></i> Thêm mới
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Các loại mặt hàng</th>
+                                    <th class="text-end" style="width: 80px;">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="product-list-body">
+                                <% if (typeof products !=='undefined' && products.length> 0) { %>
+                                    <% products.forEach(product=> { %>
+                                        <tr id="product-row-<%= product.id %>">
+                                            <td>
+                                                <%= product.product_name %>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-link text-danger p-0"
+                                                    onclick="deleteProduct('<%= product.id %>')">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <% }) %>
+                                            <% } else { %>
+                                                <tr>
+                                                    <td colspan="2" class="text-center text-muted py-3">Chưa có mặt hàng nào!</td>
+                                                </tr>
+                                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Card: Cài đặt in tem -->
+                <div class="card shadow-sm border-0 p-4 mt-4">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-print text-primary me-2"></i>Cài đặt in tem
+                    </h6>
+                    <div class="d-flex justify-content-between align-items-center py-2 px-3 bg-light rounded">
+                        <div>
+                            <div class="fw-semibold" style="font-size:0.9rem;">Hiển thị tiền thu hộ (COD)</div>
+                            <div class="text-muted" style="font-size:0.78rem;">Bật để in dòng "TIỀN THU HỘ" trên tem đơn hàng</div>
+                        </div>
+                        <div class="form-check form-switch mb-0 ms-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleCodSwitch"
+                                style="width:2.8em; height:1.4em; cursor:pointer;"
+                                <%= (typeof show_cod !== 'undefined' && show_cod == 1) ? 'checked' : '' %>
+                                onchange="toggleCodSetting(this.checked)">
+                        </div>
+                    </div>
+                    <div id="cod-toggle-msg" class="mt-2 small" style="display:none;"></div>
+
+                    <hr class="my-3">
+                    <div class="d-flex justify-content-between align-items-center py-2 px-3 bg-light rounded">
+                        <div>
+                            <div class="fw-semibold" style="font-size:0.9rem;">
+                                <i class="fas fa-desktop me-1 text-secondary"></i>In qua App C# (Desktop)
+                            </div>
+                            <div class="text-muted" style="font-size:0.78rem;">
+                                Thay vì xuất PDF, gửi lệnh in thẳng về máy tính qua kết nối socket
+                            </div>
+                            <div class="mt-1">
+                                <span id="printer-status-badge" class="badge bg-secondary" style="font-size:0.72rem;">
+                                    <i class="fas fa-circle me-1" style="font-size:0.6rem;"></i>Chưa kiểm tra
+                                </span>
+                            </div>
+                        </div>
+                        <div class="ms-3 text-end">
+                            <button class="btn btn-sm btn-outline-secondary mb-1" onclick="checkPrinterStatus()" id="btn-check-printer" style="font-size:0.8rem; white-space:nowrap;">
+                                <i class="fas fa-sync-alt me-1"></i>Kiểm tra
+                            </button>
+                            <div class="form-check form-switch mb-0 ms-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleSocketPrintSwitch"
+                                style="width:2.8em; height:1.4em; cursor:pointer;"
+                                <%= (typeof use_socket_print !== 'undefined' && use_socket_print == 1) ? 'checked' : '' %>
+                                onchange="toggleSocketPrintSetting(this.checked)">
+                        </div>
+                        </div>
+                    </div>
+                    <div id="socket-print-toggle-msg" class="mt-2 small" style="display:none;"></div>
+                    <div id="socket-print-msg" class="mt-2 small" style="display:none;"></div>
+                </div>
+
+            </div>
+
+
+            <div id="note-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg" style="min-width: 320px; max-width: 450px; width: 90%;">
+                    <h5 class="fw-bold mb-3">Thêm ghi chú mẫu</h5>
+                    <div class="mb-3">
+                        <textarea id="note-content" class="form-control" rows="3"
+                            placeholder="Ví dụ: Cho xem hàng không cho thử..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeNoteModal()">Hủy</button>
+                        <button class="btn btn-primary flex-grow-1" onclick="saveNote()">Lưu lại</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="product-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg" style="min-width: 320px; max-width: 450px; width: 90%;">
+                    <h5 class="fw-bold mb-3">Thêm mặt hàng</h5>
+                    <div class="mb-3">
+                        <textarea id="product-content" class="form-control" rows="3"
+                            placeholder="Ví dụ: quần áo..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeProductModal()">Hủy</button>
+                        <button class="btn btn-primary flex-grow-1" onclick="saveProduct()">Lưu lại</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        function openProductModal() {
+            document.getElementById('product-content').value = '';
+            document.getElementById('product-modal-overlay').style.display = 'flex';
+        }
+
+        function closeProductModal() {
+            document.getElementById('product-modal-overlay').style.display = 'none';
+        }
+
+        function openNoteModal() {
+            document.getElementById('note-content').value = '';
+            document.getElementById('note-modal-overlay').style.display = 'flex';
+        }
+
+        function closeNoteModal() {
+            document.getElementById('note-modal-overlay').style.display = 'none';
+        }
+
+        async function saveNote() {
+            const content = document.getElementById('note-content').value;
+            if (!content) return alert("Vui lòng nhập nội dung!");
+
+            try {
+                const res = await fetch('/api/profile/notes/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(result.message || "Lỗi khi lưu");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Lỗi kết nối server!");
+            }
+        }
+
+        async function deleteNote(id) {
+            if (!confirm("Xóa ghi chú này?")) return;
+            try {
+                const res = await fetch(`/api/profile/notes/delete/${id}`, { method: 'POST' });
+                const result = await res.json();
+                if (result.success) {
+                    const row = document.getElementById(`note-row-${id}`);
+                    if (row) row.remove();
+                }
+            } catch (e) {
+                alert("Lỗi xóa ghi chú!");
+            }
+        }
+
+        async function saveProduct() {
+            const content = document.getElementById('product-content').value;
+            if (!content) return alert("Vui lòng nhập nội dung!");
+
+            try {
+                const res = await fetch('/api/profile/products/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(result.message || "Lỗi khi lưu");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Lỗi kết nối server!");
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm("Xóa mặt hàng này?")) return;
+            try {
+                const res = await fetch(`/api/profile/products/delete/${id}`, { method: 'POST' });
+                const result = await res.json();
+                if (result.success) {
+                    const row = document.getElementById(`product-row-${id}`);
+                    if (row) row.remove();
+                }
+            } catch (e) {
+                alert("Lỗi xóa mặt hàng!");
+            }
+        }
+
+        async function toggleSocketPrintSetting(enabled) {
+            const msgEl = document.getElementById('socket-print-toggle-msg');
+            msgEl.style.display = 'none';
+            try {
+                const res = await fetch('/api/profile/toggle-socket-print', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ use_socket_print: enabled ? 1 : 0 })
+                });
+                const data = await res.json();
+                msgEl.style.display = 'block';
+                if (data.success) {
+                    msgEl.className = 'mt-2 small text-success';
+                    msgEl.textContent = enabled ? '✓ Đã bật in qua App C# mặc định' : '✓ Đã tắt, sẽ xuất PDF như bình thường';
+                } else {
+                    msgEl.className = 'mt-2 small text-danger';
+                    msgEl.textContent = 'Lỗi: ' + (data.message || 'Không thể lưu cài đặt');
+                    document.getElementById('toggleSocketPrintSwitch').checked = !enabled;
+                }
+                setTimeout(() => { msgEl.style.display = 'none'; }, 2500);
+            } catch (e) {
+                msgEl.style.display = 'block';
+                msgEl.className = 'mt-2 small text-danger';
+                msgEl.textContent = 'Lỗi kết nối';
+                document.getElementById('toggleSocketPrintSwitch').checked = !enabled;
+            }
+        }
+
+        async function toggleCodSetting(enabled) {
+            const msgEl = document.getElementById('cod-toggle-msg');
+            msgEl.style.display = 'none';
+            try {
+                const res = await fetch('/api/profile/toggle-cod', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ show_cod: enabled ? 1 : 0 })
+                });
+                const data = await res.json();
+                msgEl.style.display = 'block';
+                if (data.success) {
+                    msgEl.className = 'mt-2 small text-success';
+                    msgEl.textContent = enabled ? '✓ Đã bật hiển thị COD trên tem' : '✓ Đã tắt hiển thị COD trên tem';
+                } else {
+                    msgEl.className = 'mt-2 small text-danger';
+                    msgEl.textContent = 'Lỗi: ' + (data.message || 'Không thể lưu cài đặt');
+                    document.getElementById('toggleCodSwitch').checked = !enabled;
+                }
+                setTimeout(() => { msgEl.style.display = 'none'; }, 2500);
+            } catch (e) {
+                msgEl.style.display = 'block';
+                msgEl.className = 'mt-2 small text-danger';
+                msgEl.textContent = 'Lỗi kết nối';
+                document.getElementById('toggleCodSwitch').checked = !enabled;
+            }
+        }
+
+    </script>
+
+    <script>
+        const CURRENT_USER_ID = '<%= stats.id %>';
+
+        async function checkPrinterStatus() {
+            const badge = document.getElementById('printer-status-badge');
+            const btn = document.getElementById('btn-check-printer');
+            btn.disabled = true;
+            badge.className = 'badge bg-secondary';
+            badge.innerHTML = '<i class="fas fa-spinner fa-spin me-1" style="font-size:0.6rem;"></i>Đang kiểm tra...';
+            try {
+                const res = await fetch('/api/printer-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: CURRENT_USER_ID })
+                });
+                const data = await res.json();
+                if (data.online) {
+                    badge.className = 'badge bg-success';
+                    badge.innerHTML = '<i class="fas fa-circle me-1" style="font-size:0.6rem;"></i>App C# đang Online';
+                } else {
+                    badge.className = 'badge bg-danger';
+                    badge.innerHTML = '<i class="fas fa-circle me-1" style="font-size:0.6rem;"></i>App C# Offline';
+                }
+            } catch (e) {
+                badge.className = 'badge bg-warning text-dark';
+                badge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Lỗi kết nối';
+            }
+            btn.disabled = false;
+        }
+
+        
+    </script>
+
+    <script>
+        const fmt = n => Number(n || 0).toLocaleString('vi-VN') + 'đ';
+
+        const statsKeys = ['pending', 'picked_up', 'delivering', 'completed', 'returned', 'issue', 'cancel'];
+
+        function setStats(s) {
+            document.getElementById('s-total').innerText = Number(s.total || 0).toLocaleString('vi-VN') + ' đơn';
+            statsKeys.forEach(k => {
+                document.getElementById('s-cnt-' + k).innerText = Number(s['cnt_' + k] || 0).toLocaleString('vi-VN');
+                document.getElementById('s-rev-' + k).innerText = fmt(s['rev_' + k]);
+            });
+        }
+
+        function setLoading() {
+            document.getElementById('s-total').innerText = '...';
+            statsKeys.forEach(k => {
+                document.getElementById('s-cnt-' + k).innerText = '...';
+                document.getElementById('s-rev-' + k).innerText = '...';
+            });
+        }
+
+        async function loadStats(days) {
+            setLoading();
+            try {
+                const res = await fetch(`/api/profile/stats?days=${days}`);
+                const data = await res.json();
+                if (data.success) setStats(data.stats);
+            } catch (e) {
+                document.getElementById('s-total').innerText = 'Lỗi';
+            }
+        }
+
+        document.querySelectorAll('.stats-filter').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.stats-filter').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                loadStats(Number(this.dataset.days));
+            });
+        });
+
+        loadStats(1);
+    </script>
+
+    <%- include('partials/footer', { active: 'profile' }) %>

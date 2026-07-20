@@ -1,0 +1,278 @@
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<div id="notice-popup-overlay"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 1000001; justify-content: center; align-items: center;">
+    <div class="custom-popup-content shadow-lg text-center p-4"
+        style="max-width: 380px; border-radius: 25px; background: #fff;">
+        <div id="notice-icon" class="mb-3"></div>
+        <h4 id="notice-title" class="fw-bold">Thông báo</h4>
+        <div id="notice-message" class="text-dark fw-medium px-2"></div>
+        <div class="mt-4"><button type="button" class="btn btn-dark w-100 py-2 fw-bold" onclick="closeNotice()">XÁC
+                NHẬN</button></div>
+    </div>
+</div>
+<div id="notice-popup-overlay" class="custom-overlay" style="display:none">...</div>
+<div class="bottom-nav d-md-none">
+    <a href="<%= (role === 'admin' || role === 'manager') ? '/admin/orders' : '/orders' %>" 
+       class="nav-item <%= active === 'orders' ? 'active' : '' %>">
+        <i class="fas fa-box"></i>
+        <span>Đơn hàng</span>
+    </a>
+
+    <a href="/customers" class="nav-item <%= active === 'customers' ? 'active' : '' %>">
+        <i class="fas fa-users"></i>
+        <span>Khách</span>
+    </a>
+
+    <a id="btn-open-scanner" class="nav-item">
+        <i class="fas fa-qrcode"></i>
+        <span>Quét mã</span>
+    </a>
+
+    <a href="/profile" class="nav-item <%= active === 'profile' ? 'active' : '' %>">
+        <i class="fas fa-user-circle"></i>
+        <span>Cá nhân</span>
+    </a>
+
+    <% if (role === 'admin' || role === 'manager') { %>
+        <a href="/admin/dashboard" class="nav-item <%= active === 'admin' ? 'active' : '' %>">
+            <i class="fas fa-user-shield"></i>
+            <span>Admin</span>
+        </a>
+    <% } %>
+</div>
+<div class="d-block d-lg-none" style="height: 70px;"></div>
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+    }
+
+    function startQRScanner() {
+        const QRModal = new bootstrap.Modal(document.getElementById('modalQR2'));
+        QRModal.show();
+        scanner.start();
+    }
+    function onlyNumberAmount(input) {
+        let v = input.value.replace(/\D+/g, '');
+        if (v.length > 14) v = v.slice(0, 14);
+        input.value = v.replace(/(^\d{1,3}|\d{3})(?=(?:\d{3})+(?:,|$))/g, '$1.').replace(/^0+/, '');
+    }
+
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.btn-print-order');
+        if (btn) {
+            const orderData = {
+                order_code: btn.dataset.code || '',
+                customer_name: btn.dataset.name || '',
+                customer_phone: btn.dataset.phone || '',
+                customer_address: btn.dataset.address || '',
+                product_name: btn.dataset.product || '',
+                price: btn.dataset.price || 0,
+                weight: btn.dataset.weight || 0,
+                provider: btn.dataset.provider || '',
+                shop_name: btn.dataset.shopname || '',
+                shop_phone: btn.dataset.shopphone || ''
+            };
+            executePrint(orderData);
+        }
+    });
+
+    function showNotice(t, m, type) {
+        document.getElementById('notice-title').innerText = t;
+        document.getElementById('notice-message').innerText = m;
+
+        let iconHTML = '';
+        if (type === 'success') {
+            iconHTML = '<i class="fas fa-check-circle text-success" style="font-size:3rem"></i>';
+        } else if (type === 'warning') {
+            iconHTML = '<i class="fas fa-exclamation-triangle text-warning" style="font-size:3rem"></i>';
+        } else {
+            iconHTML = '<i class="fas fa-times-circle text-danger" style="font-size:3rem"></i>';
+        }
+
+        document.getElementById('notice-icon').innerHTML = iconHTML;
+        document.getElementById('notice-popup-overlay').style.display = 'flex';
+    }
+
+    function closeNotice() { if (window.needsReload) location.reload(); document.getElementById('notice-popup-overlay').style.display = 'none'; }
+    function executePrint(data) {
+        const frameId = 'printFrame_' + Date.now();
+        document.querySelectorAll('iframe[id^="printFrame_"]').forEach(el => el.remove());
+
+        const tempQrDiv = document.createElement('div');
+        tempQrDiv.style.display = 'none';
+        document.body.appendChild(tempQrDiv);
+
+        new QRCode(tempQrDiv, {
+            text: data.order_code,
+            width: 100,
+            height: 100,
+            correctLevel: QRCode.CorrectLevel.H
+        });
+
+        let checkCount = 0;
+        const checkQrReady = setInterval(() => {
+            const qrImg = tempQrDiv.querySelector('img');
+            checkCount++;
+
+            if ((qrImg && qrImg.src && qrImg.src.startsWith('data:image')) || checkCount > 20) {
+                clearInterval(checkQrReady);
+
+                const qrBase64 = qrImg ? qrImg.src : "";
+                proceedToPrint(data, qrBase64, frameId);
+                tempQrDiv.remove();
+            }
+        }, 100);
+    }
+
+    function proceedToPrint(data, qrBase64, frameId) {
+        let iframe = document.createElement('iframe');
+        iframe.id = frameId;
+        iframe.style.position = 'fixed';
+        iframe.style.opacity = '0';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
+        document.body.appendChild(iframe);
+
+        let doc = iframe.contentWindow.document;
+        const formattedPrice = Number(data.price).toLocaleString('vi-VN') + 'đ';
+
+        let html = '<html><head><style>';
+        html += '@page { size: 74mm 105mm portrait; margin: 0; } ';
+        html += 'body { margin: 0; padding: 0; width: 74mm; height: 105mm; display: flex; align-items: center; justify-content: center; background: #fff; } ';
+        html += '.print-card { width: 105mm; height: 74mm; transform: rotate(90deg); transform-origin: center; box-sizing: border-box; padding: 5mm 8mm; display: flex; flex-direction: column; position: absolute; } ';
+        html += '.header-area { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 8px; } ';
+        html += '.barcode-area { text-align: center; margin-top: auto; width: 100%; } ';
+        html += '#bc { width: 75% !important; height: 40px; } ';
+        html += '</style>';
+        html += '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>';
+        html += '</head><body>';
+
+        html += '<div class="print-card">';
+        html += '  <div class="header-area"><div><b style="font-size:20px">' + data.provider + '</b><br><small>Shop: ' + data.shop_name + '</small></div><img src="' + qrBase64 + '" width="65" height="65"></div>';
+        html += '  <div style="flex:1; display:flex; gap:10px">';
+        html += '    <div style="flex:7; font-size:15px"><b>' + data.customer_name + '</b><br><b>' + data.customer_phone + '</b><br>' + data.customer_address + '</div>';
+        html += '    <div style="flex:3; border:2px solid #000; display:flex; flex-direction:column; justify-content:center; text-align:center; height:fit-content; align-self:center; padding:5px 0;"><b>THU HỘ</b><br><b style="font-size:20px">' + formattedPrice + '</b></div>';
+        html += '  </div>';
+        html += '  <div class="barcode-area"><svg id="bc"></svg><div style="font-weight:bold; font-size:14px; margin-top:5px; letter-spacing:2px;">' + data.order_code + '</div></div>';
+        html += '</div>';
+
+        html += '<script>';
+        html += 'window.onload = function() { ';
+        html += '  JsBarcode("#bc", "' + data.order_code + '", { format: "CODE128", displayValue: false, height: 40, width: 2, margin: 0 }); ';
+        html += '  window.print(); ';
+        html += '}; ';
+        html += 'window.onafterprint = function() { var f = window.parent.document.getElementById("' + frameId + '"); if(f) f.remove(); };';
+        html += '<\/script></body></html>';
+
+        doc.open();
+        doc.write(html);
+        doc.close();
+    }
+</script>
+<script type="module">
+    import { BarcodeDetectorPolyfill } from "https://cdn.jsdelivr.net/npm/@undecaf/barcode-detector-polyfill@0.9.21/dist/main.js";
+    try {
+        window['BarcodeDetector'].getSupportedFormats();
+    } catch {
+        window['BarcodeDetector'] = BarcodeDetectorPolyfill;
+    }
+
+    import QrScanner from "/js/qr-scanner.min.js";
+
+    const video = document.getElementById('qr-video');
+    const camList = document.getElementById('cam-list');
+    const modalElement = document.getElementById('modalQR2');
+    const bootstrapModal = new bootstrap.Modal(modalElement);
+
+    const scanner = new QrScanner(video, result => setResult(result), {
+        onDecodeError: error => { /* ignore */ },
+        highlightScanRegion: true,
+        highlightCodeOutline: true,
+    });
+
+    function setResult(result) {
+        if (result.data.length < 5) return;
+        scanner.stop();
+        bootstrapModal.hide();
+        if (result.data) {
+            const role = '<%= typeof role !== "undefined" ? role : "" %>';
+            const basePath = (role === 'admin' || role === 'manager') ? '/admin/orders' : '/orders';
+            window.location.replace(basePath + "?search=" + result.data);
+        }
+    }
+
+    document.getElementById('btn-open-scanner').addEventListener('click', async () => {
+        bootstrapModal.show();
+
+        try {
+            await scanner.start();
+            const cameras = await QrScanner.listCameras(true);
+            camList.innerHTML = '';
+
+            cameras.forEach(camera => {
+                const option = document.createElement('option');
+                option.value = camera.id;
+                option.text = camera.label;
+                camList.add(option);
+
+                if (camera.label.includes('Back Ultra Wide') || camera.label.includes('cực rộng')) {
+                    option.selected = true;
+                    scanner.setCamera(camera.id);
+                }
+            });
+        } catch (err) {
+            console.error("Lỗi camera:", err);
+        }
+    });
+
+    modalElement.addEventListener('hidden.bs.modal', () => {
+        scanner.stop();
+    });
+
+    camList.addEventListener('change', event => {
+        scanner.setCamera(event.target.value);
+    });
+
+    document.getElementById('start-button').addEventListener('click', () => {
+        document.getElementById("video-container").style.display = "block";
+        scanner.start();
+    });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<div class="modal fade" id="modalQR2" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header border-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body text-center">
+                <div id="video-container" class="shadow-sm">
+                    <video id="qr-video"></video>
+                </div>
+
+                <div id="qrcontainer" class="mt-3">
+                    <div id="qrresult" class="badge bg-primary"></div>
+                </div>
+
+                <div class="mt-3">
+                    <label class="small text-muted d-block mb-1">Camera:</label>
+                    <select id="cam-list" class="form-select form-select-sm d-inline-block"></select>
+                </div>
+
+                <div class="mt-4 mb-2">
+                    <button class="btn btn-dark btn-lg rounded-pill px-4" id="start-button">
+                        <i class="fas fa-qrcode"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+
+</html>
