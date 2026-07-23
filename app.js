@@ -1035,6 +1035,7 @@ function cleanSearchTerm(str) {
         .replace("đắk rô", 'đắk drô')
         .replace("eatu", 'ea tu')
         .replace("eatam", 'ea tam')
+        .replace("ngọc bay", 'ngọk bay')
         .replace("cuôr dăng", 'cuôr đăng')
         .replace("long hoà", 'long hòa')
         .replace("an qui", 'an quy')
@@ -1978,6 +1979,7 @@ app.post('/api/orders/create', isAuth, async (req, res) => {
                 "serviceType": "1",
                 "partSign": is_partial_delivery,
                 "deliveryType": "1",
+                "isCallBeforeReturn": 1,
                 "totalQuantity": 1,
                 "sender": { "name": jt_shopname, "mobile": jt_sdt, "prov": jt_shop_prov, "city": jt_shop_district, "area": jt_shop_ward, "address": jt_shopaddress },
                 "receiver": { "name": customer_name, "mobile": customer_phone, "prov": tinh, "city": huyen, "area": xa, "address": address },

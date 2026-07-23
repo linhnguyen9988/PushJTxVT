@@ -9,6 +9,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('tvship-theme');
+                if (t === 'dark') document.documentElement.setAttribute('data-bs-theme', 'dark');
+            } catch (e) {}
+        })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" type="image/png" href="/logo.png">
@@ -33,10 +41,10 @@
 
 <body>
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 d-none d-lg-block">
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4 d-none d-lg-block py-2">
         <div class="container-fluid px-md-5">
-            <a class="navbar-brand fw-bold text-primary" href="/">
-                <img src="/logo.png" alt="Logo" style="height: 40px;">
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="/">
+                <img src="/logo.png" alt="Logo" style="height: 36px;">
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -48,34 +56,34 @@
                     <% if (locals.user) { %>
                         <li class="nav-item">
                             <% if (locals.role==='admin' || locals.role==='manager' ) { %>
-                                <a class="nav-link text-white" href="/admin/orders">📦 Vận đơn (Admin)</a>
+                                <a class="nav-link px-3" href="/admin/orders"><i class="fas fa-box me-1"></i> Vận đơn (Admin)</a>
                                 <% } else { %>
-                                    <a class="nav-link text-white" href="/orders">📦 Vận đơn</a>
+                                    <a class="nav-link px-3" href="/orders"><i class="fas fa-box me-1"></i> Vận đơn</a>
                                     <% } %>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-white" href="/customers">👥 Khách hàng</a>
+                            <a class="nav-link px-3" href="/customers"><i class="fas fa-users me-1"></i> Khách hàng</a>
                         </li>
                         <% } %>
                 </ul>
 
-                <div class="navbar-nav align-items-center">
+                <div class="navbar-nav align-items-lg-center gap-lg-2">
                     <% if (locals.user) { %>
 
-                        <a class="nav-link me-2 text-light" href="/profile"><img src="<%= locals.avatar %>"
-                                class="rounded-circle me-2" width="30" height="30"
-                                style="object-fit: cover; border: 1px solid #fff;"> Trang cá nhân</a>
+                        <a class="nav-link d-flex align-items-center px-2" href="/profile"><img src="<%= locals.avatar %>"
+                                class="rounded-circle me-2" width="28" height="28"
+                                style="object-fit: cover; border: 2px solid rgba(255,255,255,.25);"> Trang cá nhân</a>
 
                         <% if (locals.role==='admin' || locals.role==='manager' ) { %>
-                            <a class="nav-link btn btn-outline-warning btn-sm me-2 text-warning px-3"
+                            <a class="nav-link btn btn-outline-warning btn-sm px-3"
                                 href="/admin/dashboard">
-                                Admin Panel
+                                <i class="fas fa-user-shield me-1"></i>Admin Panel
                             </a>
                             <% } %>
 
-                                <a class="nav-link btn btn-danger btn-sm text-white px-3" href="/logout">Đăng xuất</a>
+                                <a class="nav-link btn btn-danger btn-sm text-white px-3" href="/logout"><i class="fas fa-right-from-bracket me-1"></i>Đăng xuất</a>
                                 <% } else { %>
-                                    <a class="nav-link" href="/login">Đăng nhập</a>
+                                    <a class="nav-link px-3" href="/login">Đăng nhập</a>
                                     <a class="nav-link btn btn-primary btn-sm ms-lg-2 px-3 text-white"
                                         href="/register">Đăng ký</a>
                                     <% } %>

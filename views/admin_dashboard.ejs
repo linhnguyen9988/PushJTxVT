@@ -3,21 +3,20 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
   :root {
-    --ink: #0e0f13;
-    --ink2: #181a21;
-    --surface: #1e2029;
-    --surface2: #252833;
-    --border: rgba(255,255,255,0.07);
+    /* Mapped to the site-wide theme tokens (public/css/style.css) so this
+       page follows the light/dark toggle instead of staying hard-coded dark. */
+    --surface: var(--surface-card);
+    --surface2: var(--ink-100);
+    --border: var(--surface-border);
     --accent: #f0a500;
     --accent2: #ff5e5b;
     --accent3: #00d4aa;
-    --text: #e8eaf0;
-    --muted: #7a7f96;
+    --text: var(--ink-900);
+    --muted: var(--ink-500);
     --radius: 14px;
   }
 
-  body { background: var(--ink) !important; font-family: 'Arimo', sans-serif; color: var(--text); }
-  .navbar { background: var(--ink2) !important; border-bottom: 1px solid var(--border); }
+  body { font-family: 'Arimo', sans-serif; }
 
   .adm-wrap { padding: 0 0 60px; }
 
@@ -33,7 +32,7 @@
     font-family: 'Arimo', sans-serif;
     font-size: 1.75rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--text);
     margin: 0;
     letter-spacing: -0.5px;
   }
@@ -75,7 +74,7 @@
     font-weight: 800;
     line-height: 1.1;
     margin-top: 6px;
-    color: #fff;
+    color: var(--text);
   }
 
   /* ── Card ── */
@@ -227,7 +226,7 @@
     margin-right: 10px;
     border: 1.5px solid var(--border);
   }
-  .user-name { font-weight: 500; color: #fff; font-size: 0.9rem; }
+  .user-name { font-weight: 500; color: var(--text); font-size: 0.9rem; }
   .user-sub { color: var(--muted); font-size: 0.75rem; }
 
   .badge-status {
@@ -312,7 +311,7 @@
   .today-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
   .today-row:last-child { border: none; }
   .today-shop { flex: 1; min-width: 0; }
-  .today-shop .name { font-weight: 500; font-size: 0.88rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .today-shop .name { font-weight: 500; font-size: 0.88rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .today-shop .handle { font-size: 0.72rem; color: var(--muted); }
   .today-orders {
     background: rgba(240,165,0,.12);
@@ -345,9 +344,9 @@
 
   .modal-content { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--radius) !important; color: var(--text) !important; }
   .modal-header { background: var(--surface2) !important; border-bottom: 1px solid var(--border) !important; }
-  .modal-header .modal-title { font-family: 'Arimo', sans-serif; font-weight: 700; color: #fff !important; font-size: 1rem; }
+  .modal-header .modal-title { font-family: 'Arimo', sans-serif; font-weight: 700; color: var(--text) !important; font-size: 1rem; }
   .modal-footer { background: var(--surface2) !important; border-top: 1px solid var(--border) !important; }
-  .modal-header .btn-close { filter: invert(1); }
+  [data-bs-theme="dark"] .modal-header .btn-close { filter: invert(1); }
   .form-label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
   .form-control, .form-select {
     background: var(--surface2) !important;
@@ -366,10 +365,10 @@
     color: var(--text) !important;
     border: 1px solid var(--border) !important;
   }
-  .custom-popup-overlay h5 { font-family: 'Arimo', sans-serif; font-weight: 700; font-size: 1rem; color: #fff; }
+  .custom-popup-overlay h5 { font-family: 'Arimo', sans-serif; font-weight: 700; font-size: 1rem; color: var(--text); }
 
   #modal-edit-order .modal-content { background: var(--surface) !important; }
-  #modal-edit-order h5 { font-family: 'Arimo', sans-serif; font-weight: 700; color: #fff; }
+  #modal-edit-order h5 { font-family: 'Arimo', sans-serif; font-weight: 700; color: var(--text); }
   #modal-edit-order label { color: var(--muted); font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
   #modal-edit-order .form-control, #modal-edit-order .form-select, #modal-edit-order textarea {
     background: var(--surface2) !important;
@@ -721,7 +720,7 @@
         <label class="fw-bold mb-2" style="font-size:.85rem;">2. Danh sách khách hàng từ file:</label>
         <div class="table-responsive" style="max-height:280px;border:1px solid var(--border);border-radius:8px;overflow:hidden;">
           <table class="table table-sm mb-0" style="background:var(--surface2);color:var(--text);font-size:.82rem;">
-            <thead style="background:var(--ink2);">
+            <thead style="background:var(--border);">
               <tr>
                 <th style="color:var(--muted);font-size:.7rem;text-transform:uppercase;padding:8px 12px;">Tên</th>
                 <th style="color:var(--muted);font-size:.7rem;text-transform:uppercase;padding:8px 12px;">SĐT</th>
@@ -746,7 +745,7 @@
 <div id="modal-edit-order"
   style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:500px;max-width:94%;max-height:90vh;overflow-y:auto;">
-    <h5 style="font-family:'Arimo',sans-serif;font-weight:700;color:#fff;margin-bottom:20px;">Chỉnh sửa vận đơn</h5>
+    <h5 style="font-family:'Arimo',sans-serif;font-weight:700;color:var(--text);margin-bottom:20px;">Chỉnh sửa vận đơn</h5>
     <input type="hidden" id="edit-order-id">
     <input type="hidden" id="edit-cust-id">
     <div class="mb-3">
