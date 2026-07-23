@@ -50,6 +50,13 @@
                                                 <div class="d-flex align-items-center gap-2">
                                                     <div class="customer-avatar"><%= (c.name || '?').trim().charAt(0).toUpperCase() %></div>
                                                     <span class="fw-bold text-primary"><%= c.name %></span>
+                                                    <% if (c.tag === 'bom_hang') { %>
+                                                        <span class="badge rounded-pill bg-danger">Bom hàng</span>
+                                                    <% } else if (c.tag === 'xa_hang') { %>
+                                                        <span class="badge rounded-pill bg-danger">Xả hàng</span>
+                                                    <% } else if (c.tag === 'than_thiet') { %>
+                                                        <span class="badge rounded-pill bg-success">Thân thiết</span>
+                                                    <% } %>
                                                 </div>
                                             </td>
                                             <td>
@@ -65,11 +72,11 @@
                                                     data-id="<%= c.id %>" data-name="<%= c.name %>"
                                                     data-phone="<%= c.phone %>" data-address="<%= c.address %>"
                                                     data-prov="<%= c.prov || '' %>" data-dist="<%= c.district || '' %>"
-                                                    data-ward="<%= c.ward || '' %>" data-newward="<%= c.newward || '' %>" data-newprov="<%= c.newprov || '' %>">
+                                                    data-ward="<%= c.ward || '' %>" data-newward="<%= c.newward || '' %>" data-newprov="<%= c.newprov || '' %>" data-tag="<%= c.tag || '' %>">
                                                     <i class="fas fa-truck-fast"></i>
                                                 </button>
                                                 <button class="btn btn-sm btn-outline-primary me-1 btn-edit-customer"
-                                                    data-id="<%= c.id %>" data-name="<%= c.name %>" data-phone="<%= c.phone %>" data-address="<%= c.address %>"><i
+                                                    data-id="<%= c.id %>" data-name="<%= c.name %>" data-phone="<%= c.phone %>" data-address="<%= c.address %>" data-tag="<%= c.tag || '' %>"><i
                                                         class="fa-solid fa-pen-to-square"></i></button>
                                                 <button class="btn btn-sm btn-outline-danger btn-delete-customer"
                                                     data-id="<%= c.id %>" data-name="<%= c.name %>"><i
@@ -96,7 +103,16 @@
                                 <div class="d-flex justify-content-between align-items-start mb-2">
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="customer-avatar"><%= (c.name || '?').trim().charAt(0).toUpperCase() %></div>
-                                        <div class="customer-card-name"><%= c.name %></div>
+                                        <div>
+                                            <div class="customer-card-name"><%= c.name %></div>
+                                            <% if (c.tag === 'bom_hang') { %>
+                                                <span class="badge rounded-pill bg-danger">Bom hàng</span>
+                                            <% } else if (c.tag === 'xa_hang') { %>
+                                                <span class="badge rounded-pill bg-danger">Xả hàng</span>
+                                            <% } else if (c.tag === 'than_thiet') { %>
+                                                <span class="badge rounded-pill bg-success">Thân thiết</span>
+                                            <% } %>
+                                        </div>
                                     </div>
                                     <div class="dropdown">
                                         <button class="btn btn-light btn-sm rounded-circle" data-bs-toggle="dropdown">
@@ -107,11 +123,11 @@
                                                     data-id="<%= c.id %>" data-name="<%= c.name %>"
                                                     data-phone="<%= c.phone %>" data-address="<%= c.address %>"
                                                     data-prov="<%= c.prov || '' %>" data-dist="<%= c.district || '' %>"
-                                                    data-ward="<%= c.ward || '' %>" data-newward="<%= c.newward || '' %>" data-newprov="<%= c.newprov || '' %>"> 
+                                                    data-ward="<%= c.ward || '' %>" data-newward="<%= c.newward || '' %>" data-newprov="<%= c.newprov || '' %>" data-tag="<%= c.tag || '' %>"> 
                                                     <i class="fa-solid fa-truck-fast"></i> Lên Đơn
                                                 </button></li>
                                             <li><a class="dropdown-item text-primary btn-edit-customer" href="javascript:void(0)"
-                                                    data-id="<%= c.id %>" data-name="<%= c.name %>" data-phone="<%= c.phone %>" data-address="<%= c.address %>">
+                                                    data-id="<%= c.id %>" data-name="<%= c.name %>" data-phone="<%= c.phone %>" data-address="<%= c.address %>" data-tag="<%= c.tag || '' %>">
                                                     <i class="fas fa-edit me-2"></i>Sửa</a></li>
                                             <li><a class="dropdown-item text-danger btn-delete-customer" href="javascript:void(0)"
                                                     data-id="<%= c.id %>" data-name="<%= c.name %>">
@@ -149,7 +165,7 @@
     <div id="customer-popup-overlay" class="custom-overlay">
         <div class="custom-popup shadow-lg">
             <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0" id="popup-title">Thêm khách hàng mới</h5>
+                <h5 class="mb-0 text-white" id="popup-title">Thêm khách hàng mới</h5>
                 <button type="button" class="btn-close btn-close-white" onclick="closePopup()"></button>
             </div>
             <form id="customerForm" class="p-3">
@@ -168,6 +184,24 @@
                     <textarea id="cust_address" name="address" class="form-control" rows="3" autocomplete="off" placeholder="Số nhà, tên đường, phường/xã..."></textarea>
                     <div id="addr-suggestions" style="display:none; background:#fff; border:1px solid #dee2e6; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.15);"></div>
                 </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Nhãn khách hàng</label>
+                    <input type="hidden" id="cust_tag" name="tag" value="">
+                    <div class="d-flex flex-wrap gap-2" id="cust-tag-group">
+                        <button type="button" class="btn btn-sm btn-outline-danger cust-tag-btn" data-tag="bom_hang">
+                            <i class="fas fa-bomb me-1"></i>Bom hàng
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger cust-tag-btn" data-tag="xa_hang">
+                            <i class="fas fa-triangle-exclamation me-1"></i>Xả hàng
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success cust-tag-btn" data-tag="than_thiet">
+                            <i class="fas fa-heart me-1"></i>Thân thiết
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary cust-tag-btn" data-tag="">
+                            <i class="fas fa-eraser me-1"></i>Xóa nhãn
+                        </button>
+                    </div>
+                </div>
                 <div class="d-flex justify-content-end gap-2 mt-4">
                     <button type="button" class="btn btn-light" onclick="closePopup()">Hủy</button>
                     <button type="submit" class="btn btn-primary px-4" id="btnSave">Lưu thông tin</button>
@@ -179,7 +213,7 @@
     <div id="quick-order-overlay" class="custom-overlay" style="display:none;">
         <div class="custom-popup-content shadow-lg" style="max-width: 500px;">
             <div class="bg-dark text-white p-3 d-flex justify-content-between align-items-center">
-                <h6 class="mb-0">🚀 LÊN ĐƠN NHANH</h6>
+                <h6 class="mb-0 text-white">🚀 LÊN ĐƠN NHANH</h6>
                 <button type="button" class="btn-close btn-close-white" onclick="closeQuickOrder()"></button>
             </div>
             <form id="quickOrderForm" class="p-3">
@@ -232,12 +266,16 @@
 
             <div class="row g-2">
                 <div class="col-12">
+                    <label class="small fw-bold">Số điện thoại</label>
+                    <input type="text" name="customer_phone" id="qo_phone" class="form-control" readonly>
+                </div>
+                <div class="col-12">
                     <label class="small fw-bold">Người nhận</label>
                     <input type="text" name="customer_name" id="qo_name" class="form-control" readonly>
                 </div>
-                <div class="col-12">
-                    <label class="small fw-bold">Số điện thoại</label>
-                    <input type="text" name="customer_phone" id="qo_phone" class="form-control" readonly>
+                <div id="qo-cust-tag-warning" class="d-none mb-3 p-2 px-3 rounded-2" style="background:#2a0d0d; border-left:4px solid #ff4d4d;">
+                    <span style="color:#ff6b6b; font-weight:700;">⚠️ Khách có nhãn <span id="qo-cust-tag-warning-label"></span></span>
+                    <span style="color:#ffb3ab;"> — cân nhắc kỹ, gọi xác nhận / thu tiền trước khi lên đơn.</span>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-bold">Địa chỉ người nhận</label>
@@ -404,9 +442,21 @@
         document.getElementById('qo_cod').addEventListener('input', updateQuickFee);
         document.getElementById('qo_weight').addEventListener('input', updateQuickFee);
 
-        function openQuickOrderModal(id, name, phone, address, prov, dist, ward, newward, newprov) {
+        function openQuickOrderModal(id, name, phone, address, prov, dist, ward, newward, newprov, tag) {
             document.getElementById('quickOrderForm').reset();
             document.getElementById('qo_vtpShopSection').classList.add('d-none');
+
+            const tagBox = document.getElementById('qo-cust-tag-warning');
+            const tagLabel = document.getElementById('qo-cust-tag-warning-label');
+            if (tag === 'bom_hang') {
+                tagLabel.textContent = 'Bom hàng';
+                tagBox.classList.remove('d-none');
+            } else if (tag === 'xa_hang') {
+                tagLabel.textContent = 'Xả hàng';
+                tagBox.classList.remove('d-none');
+            } else {
+                tagBox.classList.add('d-none');
+            }
 
             document.getElementById('qo_name').value = name;
             document.getElementById('qo_phone').value = phone;
@@ -477,7 +527,7 @@
                         btn.dataset.ward = result.data.ward;
                         btn.dataset.newward = result.data.newward;
                         btn.dataset.newprov = result.data.newprov;
-                        const newOnClick = `openQuickOrderModal('', '${name}', '${phone}', '${addr}', '${result.data.prov}', '${result.data.district}', '${result.data.ward}', '${result.data.newward}', '${result.data.newprov}')`;
+                        const newOnClick = `openQuickOrderModal('', '${name}', '${phone}', '${addr}', '${result.data.prov}', '${result.data.district}', '${result.data.ward}', '${result.data.newward}', '${result.data.newprov}', '${btn.dataset.tag || ''}')`;
                         btn.setAttribute('onclick', newOnClick);
                     });
 
@@ -556,23 +606,38 @@
         let isEditMode = false;
         let pendingDeleteId = null;
 
+        function setActiveTagButton(tag) {
+            document.querySelectorAll('.cust-tag-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tag === (tag || ''));
+            });
+            document.getElementById('cust_tag').value = tag || '';
+        }
+
         function openAddModal() {
             isEditMode = false;
             document.getElementById('popup-title').innerText = "Thêm khách hàng mới";
             document.getElementById('customerForm').reset();
             document.getElementById('customer_id').value = "";
+            setActiveTagButton('');
             document.getElementById('customer-popup-overlay').style.display = 'flex';
         }
 
-        function openEditModal(id, name, phone, address) {
+        function openEditModal(id, name, phone, address, tag) {
             isEditMode = true;
             document.getElementById('popup-title').innerText = "Sửa thông tin khách hàng";
             document.getElementById('customer_id').value = id;
             document.getElementById('cust_name').value = name;
             document.getElementById('cust_phone').value = phone;
             document.getElementById('cust_address').value = address;
+            setActiveTagButton(tag);
             document.getElementById('customer-popup-overlay').style.display = 'flex';
         }
+
+        document.getElementById('cust-tag-group').addEventListener('click', (e) => {
+            const btn = e.target.closest('.cust-tag-btn');
+            if (!btn) return;
+            setActiveTagButton(btn.dataset.tag);
+        });
 
         function closePopup() {
             document.getElementById('customer-popup-overlay').style.display = 'none';
@@ -658,11 +723,12 @@
                 const ward = btn.dataset.ward;
                 const newward = btn.dataset.newward;
                 const newprov = btn.dataset.newprov;
-                openQuickOrderModal(id, name, phone, address, prov, dist, ward, newward, newprov);
+                const tag = btn.dataset.tag;
+                openQuickOrderModal(id, name, phone, address, prov, dist, ward, newward, newprov, tag);
             }
             if (e.target.closest('.btn-edit-customer')) {
                 const btn = e.target.closest('.btn-edit-customer');
-                openEditModal(btn.dataset.id, btn.dataset.name, btn.dataset.phone, btn.dataset.address);
+                openEditModal(btn.dataset.id, btn.dataset.name, btn.dataset.phone, btn.dataset.address, btn.dataset.tag);
             }
             if (e.target.closest('.btn-delete-customer')) {
                 const btn = e.target.closest('.btn-delete-customer');

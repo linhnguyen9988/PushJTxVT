@@ -1055,8 +1055,11 @@ function cleanSearchTerm(str) {
 }
 
 app.post('/customers/edit', isAuth, async (req, res) => {
-    const { id, name, phone, address } = req.body;
+    const { id, name, phone, address, tag } = req.body;
     const username = req.app_user;
+
+    const ALLOWED_TAGS = ['bom_hang', 'xa_hang', 'than_thiet'];
+    const safeTag = ALLOWED_TAGS.includes(tag) ? tag : null;
 
     if (!name || !phone || !address) {
         return res.json({ success: false, message: "Tên, SĐT, địa chỉ không được để trống!" });
@@ -1140,9 +1143,9 @@ app.post('/customers/edit', isAuth, async (req, res) => {
             const jt = jtRows[0];
             const sqlUpdate = `
                 UPDATE customers 
-                SET name = ?, phone = ?, address = ?, prov = ?, district = ?, ward = ?, newward = ?, newprov = ?  
+                SET name = ?, phone = ?, address = ?, prov = ?, district = ?, ward = ?, newward = ?, newprov = ?, tag = ?  
                 WHERE id = ?`;
-            await db.promise().query(sqlUpdate, [name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, id]);
+            await db.promise().query(sqlUpdate, [name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag, id]);
 
             createLog(`Sửa thông tin khách hàng: ${name}`, username);
 
@@ -1169,8 +1172,11 @@ app.post('/customers/edit', isAuth, async (req, res) => {
 });
 
 app.post('/customers/add', isAuth, async (req, res) => {
-    const { name, phone, address } = req.body;
+    const { name, phone, address, tag } = req.body;
     const username = req.app_user;
+
+    const ALLOWED_TAGS = ['bom_hang', 'xa_hang', 'than_thiet'];
+    const safeTag = ALLOWED_TAGS.includes(tag) ? tag : null;
 
     if (!name || !phone || !address) {
         return res.json({ success: false, message: "Tên, SĐT, địa chỉ không được để trống!" });
@@ -1252,10 +1258,10 @@ app.post('/customers/add', isAuth, async (req, res) => {
         if (jtRows.length > 0) {
             const jt = jtRows[0];
             const sqlInsert = `
-                INSERT INTO customers (user_id, name, phone, address, prov, district, ward, newward, newprov) 
-                VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, ?, ?, ?, ?, ?, ?)`;
+                INSERT INTO customers (user_id, name, phone, address, prov, district, ward, newward, newprov, tag) 
+                VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
-            await db.promise().query(sqlInsert, [username, name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov]);
+            await db.promise().query(sqlInsert, [username, name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag]);
 
             createLog(`Đã thêm khách hàng mới: ${name}`, username);
 

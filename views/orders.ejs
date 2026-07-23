@@ -472,7 +472,7 @@ function getBadge(status) {
         <div id="custom-popup-overlay" style="display:none;">
             <div class="custom-popup-content shadow-lg">
                 <div class="p-3 d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #14181f, #1c2436); color:#fff; border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
-                    <h6 class="mb-0"><i class="fas fa-truck-fast me-2"></i>LÊN ĐƠN MỚI</h6>
+                    <h6 class="mb-0 text-white"><i class="fas fa-truck-fast me-2"></i>LÊN ĐƠN MỚI</h6>
                     <button type="button" class="btn-close btn-close-white" onclick="hidePopup()"></button>
                 </div>
                 <div class="p-3">
@@ -540,6 +540,10 @@ function getBadge(status) {
                     <div class="col-12">
                         <label class="small fw-bold">Họ tên</label>
                         <input type="text" name="customer_name" id="name_input" class="form-control" autocomplete="one-time-code" required>
+                    </div>
+                    <div id="cust-tag-warning" class="d-none mb-3 p-2 px-3 rounded-2" style="background:#2a0d0d; border-left:4px solid #ff4d4d;">
+                        <span style="color:#ff6b6b; font-weight:700;">⚠️ Khách có nhãn <span id="cust-tag-warning-label"></span></span>
+                        <span style="color:#ffb3ab;"> — cân nhắc kỹ, gọi xác nhận / thu tiền trước khi lên đơn.</span>
                     </div>
                     <div class="mb-3 position-relative">
                         <label class="form-label fw-bold">Địa chỉ</label>
@@ -710,7 +714,23 @@ function getBadge(status) {
             const DB_BASE_PRICE = Number("<%= stats.base_price %>") || 0;
             const DB_STEP_PRICE = Number("<%= stats.step_price %>") || 0;
             const DB_BASE_WEIGHT = Number("<%= stats.base_weight %>") || 0;
+            function showCustTagWarning(tag) {
+                const box = document.getElementById('cust-tag-warning');
+                const label = document.getElementById('cust-tag-warning-label');
+                if (!box || !label) return;
+                if (tag === 'bom_hang') {
+                    label.textContent = 'Bom hàng';
+                    box.classList.remove('d-none');
+                } else if (tag === 'xa_hang') {
+                    label.textContent = 'Xả hàng';
+                    box.classList.remove('d-none');
+                } else {
+                    box.classList.add('d-none');
+                }
+            }
+
             function showPopup() {
+                showCustTagWarning(null);
                 document.getElementById('custom-popup-overlay').style.display = 'block';
 
                 const scrollY = window.pageYOffset;
@@ -797,6 +817,7 @@ function handlePhoneInput(input) {
     } else {
         input.removeAttribute("list");
         document.getElementById('addr_status_msg').innerHTML = '';
+        showCustTagWarning(null);
         lastProcessedVal = "";
         return;
     }
@@ -811,8 +832,15 @@ function autoFillCust(val) {
 
     const found = customerArray.find(c => String(c.phone) === String(val) || String(c.name) === String(val));
 
+    if (!found) {
+        showCustTagWarning(null);
+        return;
+    }
+
     if (found) {
         lastProcessedVal = val; 
+
+        showCustTagWarning(found.tag);
 
         const fieldMap = {
             'name_input': found.name,
