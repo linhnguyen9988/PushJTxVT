@@ -1,13 +1,4 @@
-/* ============================================================
-   TV SHIP — DESIGN SYSTEM
-   Rebuilt for a cleaner, more professional look on top of
-   Bootstrap 5. Every original class/id name is preserved so
-   existing JS (QR scanner, print, socket.io, tag-search...)
-   keeps working untouched — only visual tokens changed.
-   ============================================================ */
-
 :root {
-    /* --- Brand palette --- */
     --brand-50:  #eef4ff;
     --brand-100: #dbe7ff;
     --brand-200: #b4cdff;
@@ -44,7 +35,6 @@
 
     --font-sans: 'Arimo', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-    /* Bootstrap variable overrides (Bootstrap 5.3 supports this) */
     --bs-primary: var(--brand-500);
     --bs-primary-rgb: 47, 94, 230;
     --bs-body-font-family: var(--font-sans);
@@ -54,7 +44,6 @@
     --bs-border-radius-lg: var(--radius-md);
 }
 
-/* ---------- Base ---------- */
 * { -webkit-tap-highlight-color: transparent; }
 
 body {
@@ -76,7 +65,6 @@ a:hover { color: var(--brand-700); }
 ::-webkit-scrollbar-thumb { background: var(--ink-300); border-radius: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* ---------- Navbar ---------- */
 .navbar {
     box-shadow: var(--shadow-sm);
     background-color: var(--ink-900) !important;
@@ -95,7 +83,6 @@ a:hover { color: var(--brand-700); }
 }
 .navbar-dark .navbar-nav .nav-link:hover { color: #fff; }
 
-/* ---------- Buttons ---------- */
 .btn {
     font-weight: 600;
     font-size: 0.85rem;
@@ -126,7 +113,6 @@ a:hover { color: var(--brand-700); }
 
 .btn-dark { background-color: var(--ink-900); border-color: var(--ink-900); }
 
-/* ---------- Cards ---------- */
 .card {
     border: 1px solid var(--surface-border);
     border-radius: var(--radius-md);
@@ -144,7 +130,6 @@ a:hover { color: var(--brand-700); }
     display: block;
 }
 
-/* ---------- Forms ---------- */
 .form-label {
     font-size: 0.78rem;
     font-weight: 600;
@@ -167,7 +152,6 @@ a:hover { color: var(--brand-700); }
 }
 .form-control-sm, .form-select-sm { border-radius: 8px; }
 
-/* ---------- Tables ---------- */
 .table {
     --bs-table-color: var(--ink-900);
     font-size: 0.85rem;
@@ -190,7 +174,6 @@ a:hover { color: var(--brand-700); }
     color: var(--ink-700);
 }
 
-/* ---------- Badges ---------- */
 .badge { font-weight: 600; letter-spacing: -0.01em; }
 .badge-count {
     font-size: 0.7rem;
@@ -199,7 +182,6 @@ a:hover { color: var(--brand-700); }
     vertical-align: middle;
 }
 
-/* ---------- Order rows & cards (Orders / Admin Orders) ---------- */
 .order-code-link {
     display: inline-flex;
     align-items: center;
@@ -253,7 +235,6 @@ a:hover { color: var(--brand-700); }
 .table > tbody > tr:hover { background-color: var(--brand-50); }
 .table > tbody > tr > td { padding-top: 12px; padding-bottom: 12px; }
 
-/* Mobile order card v2 */
 .order-card {
     background: var(--surface-card);
     border-radius: var(--radius-md);
@@ -330,7 +311,6 @@ a:hover { color: var(--brand-700); }
 
 .order-card-actions .btn { border-radius: 8px; }
 
-/* Customer card v2 */
 .customer-card {
     background: var(--surface-card);
     border-radius: var(--radius-md);
@@ -361,7 +341,6 @@ a:hover { color: var(--brand-700); }
     flex-shrink: 0;
 }
 
-/* Profile page stat rows */
 .stat-row {
     display: flex;
     justify-content: space-between;
@@ -396,19 +375,22 @@ a:hover { color: var(--brand-700); }
     object-fit: cover;
     border: 3px solid #fff;
 }
+.profile-avatar-letter {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: var(--brand-50);
+    color: var(--brand-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 3rem;
+    border: 3px solid #fff;
+}
 
 footer { margin-top: auto; }
 
-
-
-/* ============================================================
-   DARK THEME
-   Activated via [data-bs-theme="dark"] on <html> (Bootstrap 5.3
-   native color-mode attribute). All custom components already
-   use CSS variables, so overriding tokens here re-themes them
-   automatically. Utility classes the app uses a lot (bg-light,
-   bg-white, text-dark, border) are remapped too for coverage.
-   ============================================================ */
 [data-bs-theme="dark"] {
     --brand-50:  #16223b;
     --brand-100: #1c2c4d;
@@ -474,7 +456,6 @@ footer { margin-top: auto; }
     color: var(--ink-900);
 }
 
-/* Theme toggle switch (used in Profile settings) */
 .theme-toggle-row {
     display: flex;
     justify-content: space-between;
@@ -609,6 +590,7 @@ footer { margin-top: auto; }
     max-width: 500px;
     margin: 40px auto !important;
     border-radius: var(--radius-lg);
+    overflow: hidden;
     padding-bottom: 20px;
     position: relative;
     display: block !important;

@@ -217,6 +217,10 @@
                 <button type="button" class="btn-close btn-close-white" onclick="closeQuickOrder()"></button>
             </div>
             <form id="quickOrderForm" class="p-3">
+                <div id="qo-cust-tag-warning" class="d-none mb-3 p-2 px-3 rounded-2" style="background:#2a0d0d; border-left:4px solid #ff4d4d;">
+                    <span style="color:#ff6b6b; font-weight:700;">⚠️ Khách có nhãn <span id="qo-cust-tag-warning-label"></span></span>
+                    <span style="color:#ffb3ab;"> — cân nhắc kỹ, gọi xác nhận / thu tiền trước khi lên đơn.</span>
+                </div>
                 <div class="mb-3">
                     <label class="small fw-bold d-block mb-2">Đơn vị vận chuyển</label>
                     <div class="btn-group w-100">
@@ -266,16 +270,12 @@
 
             <div class="row g-2">
                 <div class="col-12">
-                    <label class="small fw-bold">Số điện thoại</label>
-                    <input type="text" name="customer_phone" id="qo_phone" class="form-control" readonly>
-                </div>
-                <div class="col-12">
                     <label class="small fw-bold">Người nhận</label>
                     <input type="text" name="customer_name" id="qo_name" class="form-control" readonly>
                 </div>
-                <div id="qo-cust-tag-warning" class="d-none mb-3 p-2 px-3 rounded-2" style="background:#2a0d0d; border-left:4px solid #ff4d4d;">
-                    <span style="color:#ff6b6b; font-weight:700;">⚠️ Khách có nhãn <span id="qo-cust-tag-warning-label"></span></span>
-                    <span style="color:#ffb3ab;"> — cân nhắc kỹ, gọi xác nhận / thu tiền trước khi lên đơn.</span>
+                <div class="col-12">
+                    <label class="small fw-bold">Số điện thoại</label>
+                    <input type="text" name="customer_phone" id="qo_phone" class="form-control" readonly>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-bold">Địa chỉ người nhận</label>

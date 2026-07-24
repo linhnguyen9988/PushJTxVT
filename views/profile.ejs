@@ -5,7 +5,11 @@
             <div class="col-lg-5 text-center">
                 <div class="card border-0 shadow-sm p-4 mb-4">
                     <div class="profile-avatar-wrap">
-                        <img src="<%= typeof avatar !== 'undefined' && avatar ? avatar : '/uploads/default-avatar.png' %>">
+                        <% if (typeof avatar !== 'undefined' && avatar) { %>
+                            <img src="<%= avatar %>">
+                        <% } else { %>
+                            <div class="profile-avatar-letter"><%= (user || '?').trim().charAt(0).toUpperCase() %></div>
+                        <% } %>
                     </div>
                     <h4 class="mt-3 mb-0 fw-bold text-dark">
                         <%= user %>

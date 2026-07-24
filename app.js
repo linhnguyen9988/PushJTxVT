@@ -1051,6 +1051,7 @@ function cleanSearchTerm(str) {
         .replace("thứ 11", 'thứ mười một')
         .replace("tân hội cơ", 'tân hộ cơ')
         .replace("ia h'drai", 'ia hdrai')
+        .replace("lạc phượng", 'phượng kỳ')
         .trim();
 }
 
