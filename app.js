@@ -190,7 +190,7 @@ app.use((req, res, next) => {
                 if (err) return next();
                 res.locals.user = decoded.username;
                 res.locals.role = decoded.role;
-                res.locals.avatar = (results && results.length > 0 && results[0].avatar) ? results[0].avatar : '/default-avatar.png';
+                res.locals.avatar = (results && results.length > 0 && results[0].avatar) ? results[0].avatar : '';
                 next();
             });
             return;
@@ -962,6 +962,8 @@ function cleanSearchTerm(str) {
         .replace('đường mười', 'Đường 10')
         .replace('p mông dương', 'mông dương')
         .replace('.', '')
+        .replace('ea knăng', 'ea kuăng')
+        .replace('buôn choach', 'buôn choah')
         .replace('si phìn', 'si pa phìn')
         .replace(' (gia kiệm)', '')
         .replace('bà rịa - vũng tàu', 'bà rịa – vũng tàu')

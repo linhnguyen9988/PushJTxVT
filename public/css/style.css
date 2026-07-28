@@ -388,6 +388,20 @@ a:hover { color: var(--brand-700); }
     font-size: 3rem;
     border: 3px solid #fff;
 }
+.nav-avatar-letter {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--brand-50);
+    color: var(--brand-600);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    border: 2px solid rgba(255,255,255,.25);
+    flex-shrink: 0;
+}
 
 footer { margin-top: auto; }
 

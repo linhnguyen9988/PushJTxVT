@@ -70,9 +70,14 @@
                 <div class="navbar-nav align-items-lg-center gap-lg-2">
                     <% if (locals.user) { %>
 
-                        <a class="nav-link d-flex align-items-center px-2" href="/profile"><img src="<%= locals.avatar %>"
-                                class="rounded-circle me-2" width="28" height="28"
-                                style="object-fit: cover; border: 2px solid rgba(255,255,255,.25);"> Trang cá nhân</a>
+                        <a class="nav-link d-flex align-items-center px-2" href="/profile">
+                            <% if (locals.avatar) { %>
+                                <img src="<%= locals.avatar %>" class="rounded-circle me-2" width="28" height="28"
+                                    style="object-fit: cover; border: 2px solid rgba(255,255,255,.25);">
+                            <% } else { %>
+                                <span class="nav-avatar-letter me-2"><%= (locals.user || '?').trim().charAt(0).toUpperCase() %></span>
+                            <% } %>
+                            Trang cá nhân</a>
 
                         <% if (locals.role==='admin' || locals.role==='manager' ) { %>
                             <a class="nav-link btn btn-outline-warning btn-sm px-3"
