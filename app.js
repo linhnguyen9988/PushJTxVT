@@ -544,7 +544,7 @@ app.post('/jtex', function (req, res) {
 
 app.use(isAuth);//Chỉ có login và register nằm trước cái này
 
-app.post('/admin/toggle-lock/:id', isManager, (req, res) => {
+app.post('/admin/toggle-lock/:id', isAdmin, (req, res) => {
     db.query('UPDATE users SET is_locked = NOT is_locked WHERE id = ?', [req.params.id], (err) => {
         createLog(`Thay đổi trạng thái khóa User ID: ${req.params.id}`, req.app_user);
         res.redirect('/admin/dashboard');
@@ -583,6 +583,24 @@ app.get('/profile', async (req, res) => {
             db.promise().query(sqlProducts, [userData.id])
         ]);
 
+        // Đơn hàng hôm nay (giống mục trong Admin Panel) - chỉ lấy cho manager/admin
+        let todayStats = [];
+        if (userData.role === 'manager' || userData.role === 'admin') {
+            const [todayStatsRows] = await db.promise().query(`
+                SELECT 
+                    u.shopname, 
+                    u.username, 
+                    COUNT(o.id) as total_orders,
+                    SUM(o.price) as total_cod
+                FROM orders o
+                JOIN users u ON o.user_id = u.id
+                WHERE o.created_at >= NOW() - INTERVAL 72 HOUR AND o.status='pending'
+                GROUP BY u.id
+                ORDER BY total_orders DESC
+            `);
+            todayStats = todayStatsRows;
+        }
+
         res.render('profile', {
             user: userData.username,
             role: userData.role,
@@ -602,6 +620,7 @@ app.get('/profile', async (req, res) => {
             products: products || [],
             show_cod: userData.show_cod !== undefined ? userData.show_cod : 1,
             use_socket_print: userData.use_socket_print !== undefined ? userData.use_socket_print : 0,
+            todayStats: todayStats,
             active: 'profile'
         });
 
@@ -665,7 +684,7 @@ app.post('/api/change-password', isAuth, async (req, res) => {
     }
 });
 
-app.get('/admin/dashboard', isManager, async (req, res) => {
+app.get('/admin/dashboard', isAdmin, async (req, res) => {
     const search = req.query.search || '';
     const currentUser = req.app_user;
 
@@ -742,7 +761,7 @@ app.post('/admin/change-role/:id', isAdmin, async (req, res) => {
     }
 });
 
-app.get('/admin/export-excel', isManager, async (req, res) => {
+app.get('/admin/export-excel', isAdmin, async (req, res) => {
     try {
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Users');
@@ -876,7 +895,7 @@ function applyAddressFixes(sWard, sDist) {
 
     sWard = sWard.replace(/\s*-\s*(h\.|huyện|quận|tt|tx|thị trấn|trấn trấn|thị xã).*$/i, '').trim();
 
-    if (sWard === 'trung nghĩa') sWard = 'yên trung';
+    //if (sWard === 'trung nghĩa' && sDist === 'hưng yên') sWard = 'yên trung';
     if (sWard === 'cần guộc') sWard = 'cần giuộc';
     if (sWard === 'eatling') sWard = 'ea tling';
     if (sDist === 'phú xuân') sDist = 'huế';
@@ -886,15 +905,21 @@ function applyAddressFixes(sWard, sDist) {
     if (sDist === 'xuân trường' && sWard === 'xuân phúc') sWard = 'xuân hòa';
     if (sDist === 'quỳ châu' && sWard === 'quỳ châu') sWard = 'tân lạc';
     if (sDist === 'đạ huoai' && sWard === 'quốc oai') sDist = 'đạ tẻh';
+    if (sDist === 'đạ huoai' && sWard === 'quảng trị') {sDist = 'đạ tẻh'; sWard = 'Triệu Hải'}
+    if (sDist === 'gia lộc' && sWard === 'gia tiến') sWard = 'Gia Lương';
+    if (sDist === 'ý yên' && sWard === 'tân minh') sWard = 'yên minh';
     if (sDist === 'đạ huoai' && sWard === 'mỹ đức') sDist = 'đạ tẻh';
     if (sDist === 'đạ huoai' && sWard === 'đạ kho') sDist = 'đạ tẻh';
     if (sDist === 'đạ huoai' && sWard === 'đạ lây') sDist = 'đạ tẻh';
     if (sDist === 'long điền' && sWard === 'tam an') sWard = 'an ngãi';
     if (sWard === 'đạ tẻh' && sDist === 'đạ huoai') sDist = 'đạ tẻh';
     if (sDist === 'đạ huoai' && sWard === 'quảng ngãi') sDist = 'cát tiên';
+    if (sDist === 'đạ huoai' && sWard === 'đức phổ') sDist = 'cát tiên';
     if (sDist === 'đạ huoai' && sWard === 'phước cát') sDist = 'cát tiên';
     if (sDist === 'đạ huoai' && sWard === 'cát tiên') sDist = 'cát tiên';
     if (sDist === 'phú lộc' && sWard === 'hương lộc') sDist = 'nam đông';
+    if (sDist === 'ninh giang' && sWard === 'đức phúc') sWard = 'vạn phúc';
+    if (sDist === 'huế' && sWard === 'long hồ') sWard = 'Hương Hồ';
     if (sDist === 'giao thủy' && sWard === 'giao thủy') sWard = 'ngô đồng';
     if (sDist === 'cẩm giàng' && sWard === 'phúc điền') sWard = 'cẩm phúc';
     if (sDist === 'kim thành' && sWard === 'hòa bình') sWard = 'Liên Hòa';
@@ -904,10 +929,13 @@ function applyAddressFixes(sWard, sDist) {
     if (sDist === 'nam sách' && sWard === 'an phú') sWard = 'an lâm';
     if (sDist === 'nam sách' && sWard === 'trần phú') sWard = 'nam trung';
     if (sDist === 'sơn dương' && sWard === 'hồng sơn') sWard = 'hồng lạc';
+    if (sDist === 'hớn quản' && sWard === "tân quang") sWard = 'tân quan';
     if (sDist === 'cư mgar' && sWard === "cư m'ga") sWard = 'cư mgar';
     if (sDist === 'chũ' && sWard === 'chũ') sDist = 'lục ngạn';
     if (sDist === 'chũ' && sWard === 'thanh hải') sDist = 'lục ngạn';
     if (sDist === 'chũ' && sWard === 'hồng giang') sDist = 'lục ngạn';
+    if (sDist === 'thanh chương' && sWard === 'dùng') sWard = 'thanh chương';
+    if (sDist === 'đạ huoai' && sWard === "đồng nai thượng") sDist = 'cát tiên';
     if (sDist === 'đạ huoai' && sWard === "đạp'loa") sWard = 'đoàn kết';
     if (sDist === 'bảo lâm' && sWard === 'lộc tlâm') sWard = 'lộc lâm';
     if (sDist === 'chũ' && sWard === 'phượng sơn') sDist = 'lục ngạn';
@@ -962,6 +990,7 @@ function cleanSearchTerm(str) {
         .replace('đường mười', 'Đường 10')
         .replace('p mông dương', 'mông dương')
         .replace('.', '')
+        .replace('lương thế chân', 'lương thế trân')
         .replace('ea knăng', 'ea kuăng')
         .replace('buôn choach', 'buôn choah')
         .replace('si phìn', 'si pa phìn')
@@ -969,10 +998,14 @@ function cleanSearchTerm(str) {
         .replace('bà rịa - vũng tàu', 'bà rịa – vũng tàu')
         .replace('thừa thiên - huế', 'thừa thiên – huế')
         .replace("đăknhau", 'đăk nhau')
+        .replace("ba bể (chợ rã)", 'chợ rã')
         .replace("đambri", 'Đạm Bri')
         .replace("ð", 'đ')
         .replace("cư niê", 'cư ni')
         .replace("h'leo", 'hleo')
+        .replace("eabar", 'ea bar')
+        .replace("yên  phú", 'yên phú')
+        .replace("đăk jrăng", 'Ðắk Drjăng')
         .replace("lai khê", 'lai vu')
         .replace("cẩm đông", 'Cẩm Ðông')
         .replace("bhinh", 'bhing')
@@ -981,8 +1014,10 @@ function cleanSearchTerm(str) {
         .replace("iale", 'ia le')
         .replace("đắk rtih", 'Đắk RTíh')
         .replace("sơ lang", 'sơn lang')
+        .replace("đạ k'năng", 'đạ knăng')
         .replace("n'thôn hạ", 'NThol Hạ')
         .replace("h'neng", 'hneng')
+        .replace("iachía", 'ia chia')
         .replace("ealy", 'ea ly')
         .replace("nậm pan", 'nậm ban')
         .replace("bát sát", 'bát xát')
@@ -1950,7 +1985,7 @@ app.post('/api/orders/create', isAuth, async (req, res) => {
                 'tân tiến', 'tân biên', 'hố nai', 'hoá an', 'hóa an',
                 'bửu hoà', 'bửu hòa', 'bửu long', 'quang vinh', 'quyết thắng',
                 'hiệp hoà', 'hiệp hòa', 'trảng dài', 'long bình', 'tân hòa', 'tân hoà',
-                'tam hoà', 'tam hòa'
+                'tam hoà', 'tam hòa', 'thống nhất'
             ];
  
             function normalizeWardNB(s) {
@@ -3476,18 +3511,26 @@ app.post('/api/admin/update-order', isManager, async (req, res) => {
         const [actorRows] = await db.promise().query('SELECT username, shopname FROM users WHERE username = ?', [req.app_user]);
         const actor = actorRows[0] || {};
 
-        const inputWeight = parseFloat(kg) || 0.5;
+        const canEditWeight = isAdmin || existingOrder.status === 'pending'
+        const finalWeight = canEditWeight ? (parseFloat(kg) || 0.5) : existingOrder.weight;
+
+        const inputWeight = finalWeight;
         const uBasePrice = Number(user.base_price) || 20000;
         const uStepPrice = Number(user.step_price) || 5000;
         const uBaseWeight = Number(user.base_weight) || 2;
 
-        let calculatedFee = uBasePrice;
+        let calculatedFee;
+        if (canEditWeight) {
+            calculatedFee = uBasePrice;
 
-        const billableWeight = Math.ceil(inputWeight);
+            const billableWeight = Math.ceil(inputWeight);
 
-        if (billableWeight > uBaseWeight && uStepPrice > 0) {
-            const extraKg = billableWeight - uBaseWeight;
-            calculatedFee += extraKg * uStepPrice;
+            if (billableWeight > uBaseWeight && uStepPrice > 0) {
+                const extraKg = billableWeight - uBaseWeight;
+                calculatedFee += extraKg * uStepPrice;
+            }
+        } else {
+            calculatedFee = existingOrder.internal_fee;
         }
 
         const statusMap = {
@@ -3518,7 +3561,7 @@ app.post('/api/admin/update-order', isManager, async (req, res) => {
         `;
         const params = [
             customer_name, customer_phone, customer_address,
-            jt_prov, jt_district, jt_ward, finalPrice, kg, calculatedFee
+            jt_prov, jt_district, jt_ward, finalPrice, finalWeight, calculatedFee
         ];
 
         if (dbStatus) {

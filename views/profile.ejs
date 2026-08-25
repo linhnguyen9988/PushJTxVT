@@ -29,6 +29,41 @@
                     </form>
                 </div>
 
+                <% if ((role === 'manager' || role === 'admin') && typeof todayStats !== 'undefined') { %>
+                <div class="card border-0 shadow-sm p-4 text-start mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <i class="fas fa-box me-2 text-success"></i>Đơn hàng hôm nay
+                        </h6>
+                        <span class="text-muted" style="font-size:0.72rem;">Theo giờ tạo</span>
+                    </div>
+
+                    <% if (todayStats && todayStats.length > 0) { %>
+                        <% todayStats.forEach(item => { %>
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <div class="min-w-0">
+                                <div class="fw-semibold small text-truncate" style="max-width:140px;">
+                                    <%= item.shopname || 'Chưa đặt tên' %>
+                                </div>
+                                <div class="text-muted" style="font-size:0.72rem;">@<%= item.username %></div>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">
+                                <%= item.total_orders %> đơn
+                            </span>
+                            <span class="fw-bold text-success" style="font-family:'Arimo',sans-serif;">
+                                <%= new Intl.NumberFormat('vi-VN').format(item.total_cod || 0) %>đ
+                            </span>
+                        </div>
+                        <% }) %>
+                    <% } else { %>
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-box-open fa-2x mb-2 d-block" style="opacity:.3;"></i>
+                            Hôm nay chưa có đơn hàng
+                        </div>
+                    <% } %>
+                </div>
+                <% } %>
+
                 <div class="card border-0 shadow-sm p-4 text-start">
                     <h6 class="fw-bold mb-3"><i class="fas fa-key me-2 text-muted"></i>Đổi mật khẩu</h6>
                     <%- include('partials/messages') %>

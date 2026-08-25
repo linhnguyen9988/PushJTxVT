@@ -738,7 +738,9 @@ function getBadge(status) {
                         <% if (currentRole !== 'admin') { %>disabled title="Chỉ Admin mới được sửa COD"<% } %>>
                 </div>
                 <div class="col-6 mb-2">
-                    <label class="small fw-bold">KG</label>
+                    <label class="small fw-bold">KG
+                        <span id="edit-kg-lock-note" class="text-danger ms-1" style="font-size:0.7rem; display:none;">(Chỉ sửa khi Chờ lấy)</span>
+                    </label>
                     <input type="number" id="edit-cust-kg" class="form-control form-control-sm">
                 </div>
             </div>
@@ -1915,6 +1917,13 @@ let currentOrderData = null;
             document.getElementById('edit-cust-cod').value = currentOrderData.price || '';
             document.getElementById('edit-cust-kg').value = currentOrderData.weight || '';
             document.getElementById('edit-cust-id').value = currentOrderData.user_id || '';
+
+            const kgInput = document.getElementById('edit-cust-kg');
+            const kgLockNote = document.getElementById('edit-kg-lock-note');
+            const canEditKg = CURRENT_ROLE === 'admin' || currentOrderData.status === 'pending';
+            kgInput.disabled = !canEditKg;
+            kgInput.title = canEditKg ? '' : 'Chỉ được sửa số ký khi đơn ở trạng thái Chờ lấy hàng';
+            if (kgLockNote) kgLockNote.style.display = canEditKg ? 'none' : 'inline';
             const p = currentOrderData.jt_prov;
             const d = currentOrderData.jt_district;
             const w = currentOrderData.jt_ward;
