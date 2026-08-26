@@ -17,6 +17,7 @@ const https = require('https');
 const fs = require('fs');
 const { Server } = require("socket.io");
 const otplib = require('otplib');
+const crypto = require('crypto');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tvship_jwt_secret_key_change_in_production_2024!';
 const JWT_EXPIRES_IN = '30d';
@@ -175,6 +176,64 @@ db.query(`ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL`, (err) => {
 db.query(`ALTER TABLE users ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0`, (err) => {
     if (err && err.code !== 'ER_DUP_FIELDNAME') console.error('Lỗi thêm cột totp_enabled:', err.message);
 });
+db.query(`ALTER TABLE users ADD COLUMN totp_recovery_codes TEXT NULL`, (err) => {
+    if (err && err.code !== 'ER_DUP_FIELDNAME') console.error('Lỗi thêm cột totp_recovery_codes:', err.message);
+});
+
+// Sinh N mã khôi phục dạng XXXX-XXXX (không dùng ký tự dễ nhầm 0/O/1/I)
+function generateRecoveryCodes(count = 8) {
+    const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const codes = [];
+    for (let i = 0; i < count; i++) {
+        let raw = '';
+        for (let j = 0; j < 8; j++) raw += charset[crypto.randomInt(0, charset.length)];
+        codes.push(raw.slice(0, 4) + '-' + raw.slice(4));
+    }
+    return codes;
+}
+
+// Băm danh sách mã khôi phục (plaintext) để lưu DB
+async function hashRecoveryCodes(plainCodes) {
+    const hashed = [];
+    for (const c of plainCodes) hashed.push(await bcrypt.hash(c, 10));
+    return hashed;
+}
+
+function normalizeRecoveryInput(code) {
+    return String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+}
+
+// Kiểm tra + "tiêu" 1 mã khôi phục (dùng 1 lần rồi mất hiệu lực)
+async function verifyAndConsumeRecoveryCode(username, inputCode) {
+    if (!inputCode) return false;
+    const normalized = normalizeRecoveryInput(inputCode);
+    if (!normalized) return false;
+
+    const [rows] = await db.promise().query('SELECT totp_recovery_codes FROM users WHERE username = ?', [username]);
+    if (!rows.length || !rows[0].totp_recovery_codes) return false;
+
+    let hashedCodes;
+    try { hashedCodes = JSON.parse(rows[0].totp_recovery_codes); } catch (e) { return false; }
+    if (!Array.isArray(hashedCodes) || hashedCodes.length === 0) return false;
+
+    for (let i = 0; i < hashedCodes.length; i++) {
+        const match = await bcrypt.compare(normalized, hashedCodes[i]);
+        if (match) {
+            hashedCodes.splice(i, 1); // dùng 1 lần rồi xóa khỏi danh sách
+            await db.promise().query('UPDATE users SET totp_recovery_codes = ? WHERE username = ?', [JSON.stringify(hashedCodes), username]);
+            return true;
+        }
+    }
+    return false;
+}
+
+// Xác thực bước 2FA: chấp nhận mã 6 số từ Authenticator HOẶC 1 mã khôi phục (khi mất thiết bị)
+async function verify2FACode(username, secret, inputCode) {
+    if (!inputCode) return false;
+    const totpOk = await verifyTotpToken(secret, inputCode);
+    if (totpOk) return true;
+    return await verifyAndConsumeRecoveryCode(username, inputCode);
+}
 
 // Kiểm tra 1 mã OTP 6 số với secret cho trước (cho phép lệch 1 bước ~30s để tránh lệch giờ thiết bị)
 async function verifyTotpToken(secret, token) {
@@ -217,7 +276,7 @@ function require2FA(req, res, next) {
             return respondFail(400, 'Vui lòng nhập mã 2FA để xác nhận thao tác.', { require2FACode: true });
         }
 
-        const ok = await verifyTotpToken(admin.totp_secret, code);
+        const ok = await verify2FACode(req.app_user, admin.totp_secret, code);
         if (!ok) {
             return respondFail(400, 'Mã 2FA không đúng hoặc đã hết hạn.');
         }
@@ -471,7 +530,7 @@ app.post('/api/login/2fa-verify', async (req, res) => {
             return res.status(403).json({ success: false, message: 'Tài khoản này đã bị khóa!' });
         }
 
-        const ok = await verifyTotpToken(userRecord.totp_secret, code);
+        const ok = await verify2FACode(userRecord.username, userRecord.totp_secret, code);
         if (!ok) return res.status(400).json({ success: false, message: 'Mã 2FA không đúng.' });
 
         const payload = { username: userRecord.username, role: userRecord.role, userId: userRecord.id };
@@ -579,7 +638,7 @@ app.post('/login/2fa', async (req, res) => {
             return res.redirect('/login');
         }
 
-        const ok = await verifyTotpToken(rows[0].totp_secret, code);
+        const ok = await verify2FACode(pending.username, rows[0].totp_secret, code);
         if (!ok) {
             req.flash('error_msg', 'Mã xác thực 2FA không đúng. Vui lòng thử lại.');
             return res.redirect('/login/2fa');
@@ -887,7 +946,7 @@ app.post('/profile/change-password', isAuth, async (req, res) => {
 
         // Tài khoản đã bật 2FA -> bắt buộc nhập đúng mã 2FA mới cho đổi mật khẩu
         if (results[0].totp_enabled) {
-            const ok = await verifyTotpToken(results[0].totp_secret, totpCode);
+            const ok = await verify2FACode(req.app_user, results[0].totp_secret, totpCode);
             if (!ok) {
                 req.flash('error_msg', 'Mã 2FA không đúng. Vui lòng thử lại.');
                 return res.redirect('/profile');
@@ -921,7 +980,7 @@ app.post('/api/change-password', isAuth, async (req, res) => {
 
         // Tài khoản đã bật 2FA -> bắt buộc nhập đúng mã 2FA mới cho đổi mật khẩu
         if (rows[0].totp_enabled) {
-            const ok = await verifyTotpToken(rows[0].totp_secret, totpCode);
+            const ok = await verify2FACode(username, rows[0].totp_secret, totpCode);
             if (!ok) {
                 return res.status(400).json({ success: false, message: 'Mã 2FA không đúng.', require2FACode: true });
             }
@@ -961,17 +1020,24 @@ app.post('/api/2fa/enable', isAuth, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Phiên thiết lập 2FA đã hết hạn, vui lòng bấm Bật 2FA lại.' });
     }
 
+    // Bước xác nhận thiết lập ban đầu: chỉ chấp nhận mã TOTP thật, chưa có mã khôi phục nào được tạo
     const ok = await verifyTotpToken(secret, code);
     if (!ok) {
         return res.status(400).json({ success: false, message: 'Mã xác thực không đúng. Vui lòng kiểm tra lại app Authenticator.' });
     }
 
     try {
-        await db.promise().query('UPDATE users SET totp_secret = ?, totp_enabled = 1 WHERE username = ?', [secret, req.app_user]);
+        const recoveryCodes = generateRecoveryCodes(8);
+        const hashedRecoveryCodes = await hashRecoveryCodes(recoveryCodes);
+
+        await db.promise().query(
+            'UPDATE users SET totp_secret = ?, totp_enabled = 1, totp_recovery_codes = ? WHERE username = ?',
+            [secret, JSON.stringify(hashedRecoveryCodes), req.app_user]
+        );
         delete req.session.totp_setup_secret;
         delete req.session.totp_setup_user;
         createLog('Đã bật Xác thực 2 lớp (2FA)', req.app_user);
-        res.json({ success: true, message: 'Đã bật Xác thực 2 lớp thành công!' });
+        res.json({ success: true, message: 'Đã bật Xác thực 2 lớp thành công!', recoveryCodes });
     } catch (e) {
         console.error('Lỗi bật 2FA:', e);
         res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
@@ -989,16 +1055,43 @@ app.post('/api/2fa/disable', isAuth, async (req, res) => {
             return res.json({ success: true, message: '2FA đã tắt sẵn.' });
         }
 
-        const ok = await verifyTotpToken(u.totp_secret, code);
+        // Cho phép tắt bằng mã TOTP hoặc bằng mã khôi phục (nếu mất thiết bị Authenticator)
+        const ok = await verify2FACode(req.app_user, u.totp_secret, code);
         if (!ok) {
-            return res.status(400).json({ success: false, message: 'Mã 2FA không đúng. Vui lòng nhập mã hiện tại từ app Authenticator để xác nhận tắt.' });
+            return res.status(400).json({ success: false, message: 'Mã không đúng. Nhập mã 6 số từ app Authenticator hoặc 1 mã khôi phục còn hiệu lực.' });
         }
 
-        await db.promise().query('UPDATE users SET totp_secret = NULL, totp_enabled = 0 WHERE username = ?', [req.app_user]);
+        await db.promise().query('UPDATE users SET totp_secret = NULL, totp_enabled = 0, totp_recovery_codes = NULL WHERE username = ?', [req.app_user]);
         createLog('Đã tắt Xác thực 2 lớp (2FA)', req.app_user);
         res.json({ success: true, message: 'Đã tắt Xác thực 2 lớp.' });
     } catch (e) {
         console.error('Lỗi tắt 2FA:', e);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+    }
+});
+
+// Tạo lại bộ mã khôi phục mới (các mã cũ sẽ mất hiệu lực) — cần xác thực bằng mã TOTP hoặc 1 mã khôi phục còn lại
+app.post('/api/2fa/recovery-codes/regenerate', isAuth, async (req, res) => {
+    const { code } = req.body;
+    try {
+        const [rows] = await db.promise().query('SELECT totp_secret, totp_enabled FROM users WHERE username = ?', [req.app_user]);
+        if (!rows.length || !rows[0].totp_enabled) {
+            return res.status(400).json({ success: false, message: 'Tài khoản chưa bật 2FA.' });
+        }
+
+        const ok = await verify2FACode(req.app_user, rows[0].totp_secret, code);
+        if (!ok) {
+            return res.status(400).json({ success: false, message: 'Mã không đúng.' });
+        }
+
+        const recoveryCodes = generateRecoveryCodes(8);
+        const hashedRecoveryCodes = await hashRecoveryCodes(recoveryCodes);
+        await db.promise().query('UPDATE users SET totp_recovery_codes = ? WHERE username = ?', [JSON.stringify(hashedRecoveryCodes), req.app_user]);
+
+        createLog('Đã tạo lại mã khôi phục 2FA', req.app_user);
+        res.json({ success: true, message: 'Đã tạo bộ mã khôi phục mới. Các mã cũ không còn hiệu lực.', recoveryCodes });
+    } catch (e) {
+        console.error('Lỗi tạo lại mã khôi phục:', e);
         res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
     }
 });

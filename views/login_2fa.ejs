@@ -12,7 +12,8 @@
             <h3 class="text-center fw-bold mb-1">Xác thực 2 lớp</h3>
             <p class="text-center text-muted small mb-4">
                 Tài khoản <strong><%= username %></strong> đã bật 2FA.<br>
-                Nhập mã 6 số từ app Authenticator để tiếp tục.
+                Nhập mã 6 số từ app Authenticator để tiếp tục.<br>
+                <span class="text-muted" style="font-size:0.8rem;">(Mất thiết bị? Dùng 1 mã khôi phục đã lưu.)</span>
             </p>
 
             <%- include('partials/messages') %>
@@ -20,8 +21,8 @@
             <form action="/login/2fa" method="POST">
                 <div class="mb-3">
                     <input type="text" name="code" class="form-control form-control-lg text-center"
-                        placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
-                        style="letter-spacing: 6px; font-weight: 700;" autofocus required>
+                        placeholder="000000 hoặc mã khôi phục" maxlength="9" autocomplete="one-time-code"
+                        style="letter-spacing: 3px; font-weight: 700;" autofocus required>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 py-2">Xác nhận</button>
             </form>

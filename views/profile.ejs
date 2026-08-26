@@ -89,6 +89,9 @@
                         <button type="button" class="btn btn-outline-danger btn-sm w-100 shadow-sm" onclick="openDisable2FAModal()">
                             <i class="fas fa-shield-slash me-1"></i> Tắt 2FA
                         </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100 shadow-sm mt-2" onclick="openRegenRecoveryModal()">
+                            <i class="fas fa-key me-1"></i> Tạo lại mã khôi phục
+                        </button>
                     <% } else { %>
                         <button type="button" class="btn btn-outline-primary btn-sm w-100 shadow-sm" onclick="openSetup2FAModal()">
                             <i class="fas fa-shield-halved me-1"></i> Bật 2FA
@@ -425,7 +428,8 @@
                     <% if (totp_enabled) { %>
                     <div class="mb-3">
                         <label class="small fw-bold mb-1"><i class="fas fa-shield-halved me-1 text-primary"></i>Mã 2FA</label>
-                        <input type="text" id="cp-totp" class="form-control form-control-sm shadow-none" placeholder="Nhập mã 6 số từ app Authenticator" inputmode="numeric" maxlength="6" required>
+                        <input type="text" id="cp-totp" class="form-control form-control-sm shadow-none" placeholder="Mã 6 số từ app Authenticator, hoặc mã khôi phục" maxlength="9" required>
+                        <div class="form-text" style="font-size:0.72rem;">Mất thiết bị? Dùng 1 trong các mã khôi phục đã lưu.</div>
                     </div>
                     <% } %>
                     <div id="cp-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
@@ -474,13 +478,53 @@
                 style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
                 <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 400px; width: 90%;">
                     <h5 class="fw-bold mb-3"><i class="fas fa-shield-slash me-2 text-danger"></i>Tắt Xác thực 2 lớp</h5>
-                    <p class="small text-muted mb-2">Nhập mã 6 số hiện tại từ app Authenticator để xác nhận tắt 2FA.</p>
-                    <input type="text" id="disable-tfa-code" class="form-control mb-3" placeholder="000000" inputmode="numeric" maxlength="6">
+                    <p class="small text-muted mb-2">Nhập mã 6 số từ app Authenticator, hoặc 1 mã khôi phục nếu đã mất thiết bị.</p>
+                    <input type="text" id="disable-tfa-code" class="form-control mb-3" placeholder="Mã 6 số hoặc mã khôi phục" maxlength="9">
                     <div id="tfa-disable-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
                     <div class="d-flex gap-2">
                         <button class="btn btn-light flex-grow-1" onclick="closeDisable2FAModal()">Hủy</button>
                         <button class="btn btn-danger flex-grow-1" id="tfa-disable-btn" onclick="confirmDisable2FA()">Xác nhận tắt</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Modal: Xác nhận trước khi tạo lại mã khôi phục -->
+            <div id="regen-recovery-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 400px; width: 90%;">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-key me-2 text-secondary"></i>Tạo lại mã khôi phục</h5>
+                    <p class="small text-muted mb-2">
+                        Các mã khôi phục cũ sẽ <strong>không còn hiệu lực</strong>. Nhập mã 6 số từ app Authenticator
+                        (hoặc 1 mã khôi phục còn lại) để xác nhận.
+                    </p>
+                    <input type="text" id="regen-recovery-code" class="form-control mb-3" placeholder="Mã 6 số hoặc mã khôi phục" maxlength="9">
+                    <div id="regen-recovery-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeRegenRecoveryModal()">Hủy</button>
+                        <button class="btn btn-secondary flex-grow-1" id="regen-recovery-btn" onclick="confirmRegenRecovery()">Xác nhận</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Hiển thị mã khôi phục (chỉ hiện 1 lần) -->
+            <div id="recovery-codes-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 440px; width: 92%;">
+                    <h5 class="fw-bold mb-2"><i class="fas fa-key me-2 text-warning"></i>Mã khôi phục 2FA</h5>
+                    <p class="small text-muted mb-3">
+                        Lưu lại 8 mã này ở nơi an toàn. Mỗi mã chỉ dùng được <strong>1 lần</strong> để đăng nhập / đổi mật khẩu /
+                        tắt 2FA khi bạn <strong>mất thiết bị Authenticator</strong>. Mã sẽ <strong>không hiển thị lại</strong> sau khi đóng cửa sổ này.
+                    </p>
+                    <div id="recovery-codes-list" class="mb-3 p-3" style="background:#f8f9fa;border-radius:8px;font-family:monospace;font-size:0.95rem;line-height:1.9;text-align:center;"></div>
+                    <div class="d-flex gap-2 mb-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="copyRecoveryCodes()"><i class="fas fa-copy me-1"></i>Sao chép</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="downloadRecoveryCodes()"><i class="fas fa-download me-1"></i>Tải xuống</button>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="recovery-saved-check">
+                        <label class="form-check-label small" for="recovery-saved-check">Tôi đã lưu lại các mã này ở nơi an toàn.</label>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" id="recovery-codes-close-btn" disabled onclick="closeRecoveryCodesModal()">Đóng</button>
                 </div>
             </div>
         </div>
@@ -839,7 +883,7 @@
                 const data = await res.json();
                 if (data.success) {
                     closeSetup2FAModal();
-                    showNotice('Thành công', data.message || 'Đã bật 2FA.', 'success');
+                    showRecoveryCodesModal(data.recoveryCodes || []);
                     window.needsReload = true;
                 } else {
                     errEl.textContent = data.message || 'Mã không đúng.'; errEl.style.display = 'block';
@@ -887,6 +931,74 @@
             } finally {
                 btn.disabled = false; btn.innerHTML = orig;
             }
+        }
+
+        // ═══ Tạo lại mã khôi phục ═══
+        function openRegenRecoveryModal() {
+            document.getElementById('regen-recovery-code').value = '';
+            document.getElementById('regen-recovery-error').style.display = 'none';
+            document.getElementById('regen-recovery-modal-overlay').style.display = 'flex';
+        }
+        function closeRegenRecoveryModal() {
+            document.getElementById('regen-recovery-modal-overlay').style.display = 'none';
+        }
+        async function confirmRegenRecovery() {
+            const code = document.getElementById('regen-recovery-code').value.trim();
+            const errEl = document.getElementById('regen-recovery-error');
+            errEl.style.display = 'none';
+            if (!code) { errEl.textContent = 'Vui lòng nhập mã xác nhận.'; errEl.style.display = 'block'; return; }
+
+            const btn = document.getElementById('regen-recovery-btn');
+            btn.disabled = true; const orig = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang xử lý...';
+            try {
+                const res = await fetch('/api/2fa/recovery-codes/regenerate', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeRegenRecoveryModal();
+                    showRecoveryCodesModal(data.recoveryCodes || []);
+                } else {
+                    errEl.textContent = data.message || 'Mã không đúng.'; errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối server.'; errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false; btn.innerHTML = orig;
+            }
+        }
+
+        // ═══ Modal hiển thị mã khôi phục (dùng chung cho Bật 2FA & Tạo lại mã) ═══
+        let _currentRecoveryCodes = [];
+        function showRecoveryCodesModal(codes) {
+            _currentRecoveryCodes = codes;
+            const listEl = document.getElementById('recovery-codes-list');
+            listEl.innerHTML = codes.map(c => `<div>${c}</div>`).join('');
+            document.getElementById('recovery-saved-check').checked = false;
+            document.getElementById('recovery-codes-close-btn').disabled = true;
+            document.getElementById('recovery-codes-modal-overlay').style.display = 'flex';
+        }
+        function closeRecoveryCodesModal() {
+            document.getElementById('recovery-codes-modal-overlay').style.display = 'none';
+            if (window.needsReload) { window.needsReload = false; location.reload(); }
+        }
+        document.getElementById('recovery-saved-check').addEventListener('change', function () {
+            document.getElementById('recovery-codes-close-btn').disabled = !this.checked;
+        });
+        function copyRecoveryCodes() {
+            const text = _currentRecoveryCodes.join('\n');
+            if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+            showNotice('Đã sao chép', 'Đã sao chép các mã khôi phục vào clipboard.', 'success');
+        }
+        function downloadRecoveryCodes() {
+            const text = 'TV Ship - Mã khôi phục 2FA\nMỗi mã chỉ dùng được 1 lần.\n\n' + _currentRecoveryCodes.join('\n') + '\n';
+            const blob = new Blob([text], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'tvship-2fa-recovery-codes.txt';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
         }
     </script>
 
