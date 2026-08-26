@@ -3,8 +3,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
   :root {
-    /* Mapped to the site-wide theme tokens (public/css/style.css) so this
-       page follows the light/dark toggle instead of staying hard-coded dark. */
+
     --surface: var(--surface-card);
     --surface2: var(--ink-100);
     --border: var(--surface-border);
@@ -391,6 +390,36 @@
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: var(--surface); }
   ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
+
+  .reg-lock-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 4px 0;
+  }
+  .reg-lock-row .lbl { font-weight: 600; color: var(--text); font-size: 0.88rem; }
+  .reg-lock-row .sub { color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
+  .adm-switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+  .adm-switch input { opacity: 0; width: 0; height: 0; }
+  .adm-switch .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    transition: .2s;
+    border-radius: 999px;
+  }
+  .adm-switch .slider::before {
+    position: absolute; content: "";
+    height: 18px; width: 18px;
+    left: 3px; bottom: 3px;
+    background: var(--muted);
+    transition: .2s;
+    border-radius: 50%;
+  }
+  .adm-switch input:checked + .slider { background: rgba(255,94,91,0.18); border-color: var(--accent2); }
+  .adm-switch input:checked + .slider::before { transform: translateX(20px); background: var(--accent2); }
+  .adm-switch input:disabled + .slider { opacity: .5; cursor: not-allowed; }
 </style>
 
 <div class="container-fluid px-3 px-md-4 adm-wrap">
@@ -445,6 +474,28 @@
           <button onclick="connectVTPAdmin()" class="btn-accent w-100">
             <i class="fas fa-key me-1"></i> Cập nhật token hệ thống
           </button>
+        </div>
+      </div>
+
+      <!-- Khóa đăng ký tài khoản mới -->
+      <div class="adm-card">
+        <div class="adm-card-header">
+          <h6><span class="dot" style="background:var(--accent2)"></span> Đăng ký tài khoản</h6>
+        </div>
+        <div class="adm-card-body">
+          <div class="reg-lock-row">
+            <div>
+              <div class="lbl">Khóa đăng ký mới</div>
+              <div class="sub">Khi bật, người dùng không thể tạo tài khoản mới tại /register</div>
+            </div>
+            <label class="adm-switch">
+              <input type="checkbox" id="registrationLockSwitch"
+                     <%= registrationLocked ? 'checked' : '' %>
+                     <%= currentRole === 'admin' ? '' : 'disabled' %>
+                     onchange="toggleRegistrationLock(this)">
+              <span class="slider"></span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -785,6 +836,27 @@
 
 <script>
   const CURRENT_ROLE = "<%= currentRole %>";
+
+  async function toggleRegistrationLock(checkbox) {
+    const prevState = !checkbox.checked; // trạng thái trước khi bấm
+    checkbox.disabled = true;
+    try {
+      const res = await fetch('/admin/toggle-registration-lock', { method: 'POST' });
+      const result = await res.json();
+      if (result.success) {
+        checkbox.checked = result.locked;
+        showNotice("Thành công", result.locked ? "Đã khóa đăng ký tài khoản mới." : "Đã mở khóa đăng ký tài khoản mới.", "success");
+      } else {
+        checkbox.checked = prevState;
+        showNotice("Lỗi", result.message || "Không thể cập nhật cài đặt.", "danger");
+      }
+    } catch (e) {
+      checkbox.checked = prevState;
+      showNotice("Lỗi", "Lỗi kết nối server.", "danger");
+    } finally {
+      checkbox.disabled = (CURRENT_ROLE !== 'admin');
+    }
+  }
 
   async function connectVTPAdmin() {
     const user = document.getElementById('vtp_user').value;

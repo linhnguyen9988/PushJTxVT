@@ -146,6 +146,23 @@ db.getConnection((err, connection) => {
     }
 });
 
+db.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+        id INT PRIMARY KEY DEFAULT 1,
+        registration_locked TINYINT(1) NOT NULL DEFAULT 0
+    )
+`, (err) => {
+    if (err) return console.error('Lỗi tạo bảng app_settings:', err.message);
+    db.query('INSERT IGNORE INTO app_settings (id, registration_locked) VALUES (1, 0)');
+});
+
+function getRegistrationLocked(cb) {
+    db.query('SELECT registration_locked FROM app_settings WHERE id = 1', (err, results) => {
+        if (err || !results || results.length === 0) return cb(false);
+        cb(!!results[0].registration_locked);
+    });
+}
+
 
 app.set('view engine', 'ejs');
 app.use(express.json({ limit: '100mb' }));
@@ -281,19 +298,30 @@ const redirectIfLoggedIn = (req, res, next) => {
 
 app.get('/', (req, res) => res.redirect('/login'));
 
-app.get('/register', redirectIfLoggedIn, (req, res) => res.render('register'));
+app.get('/register', redirectIfLoggedIn, (req, res) => {
+    getRegistrationLocked((locked) => {
+        res.render('register', { registrationLocked: locked });
+    });
+});
 app.post('/register', async (req, res) => {
-    const { username, shopname, password } = req.body;
-    try {
-        const hashed = await bcrypt.hash(password, 10);
-        db.query('INSERT INTO users (username, shopname, password, role) VALUES (?, ?, ?, "user")', [username, shopname, hashed], (err) => {
-            if (err) {
-                req.flash('error_msg', 'Tên đăng nhập đã tồn tại.');
-                return res.redirect('/register');
-            }
-            res.redirect('/login');
-        });
-    } catch (e) { res.redirect('/register'); }
+    getRegistrationLocked(async (locked) => {
+        if (locked) {
+            req.flash('error_msg', 'Đăng ký tài khoản mới hiện đang tạm khóa. Vui lòng liên hệ quản trị viên.');
+            return res.redirect('/register');
+        }
+
+        const { username, shopname, password } = req.body;
+        try {
+            const hashed = await bcrypt.hash(password, 10);
+            db.query('INSERT INTO users (username, shopname, password, role) VALUES (?, ?, ?, "user")', [username, shopname, hashed], (err) => {
+                if (err) {
+                    req.flash('error_msg', 'Tên đăng nhập đã tồn tại.');
+                    return res.redirect('/register');
+                }
+                res.redirect('/login');
+            });
+        } catch (e) { res.redirect('/register'); }
+    });
 });
 
 app.post('/api/login', (req, res) => {
@@ -551,6 +579,20 @@ app.post('/admin/toggle-lock/:id', isAdmin, (req, res) => {
     });
 });
 
+// Khóa/mở đăng ký tài khoản mới - chỉ admin mới có quyền (đã có isAdmin chặn manager/user)
+app.post('/admin/toggle-registration-lock', isAdmin, (req, res) => {
+    db.query('UPDATE app_settings SET registration_locked = NOT registration_locked WHERE id = 1', (err) => {
+        if (err) {
+            console.error('Lỗi toggle registration lock:', err.message);
+            return res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+        }
+        getRegistrationLocked((locked) => {
+            createLog(`${locked ? 'Khóa' : 'Mở khóa'} đăng ký tài khoản mới`, req.app_user);
+            res.json({ success: true, locked });
+        });
+    });
+});
+
 app.get('/profile', async (req, res) => {
     if (!req.app_user) return res.redirect('/login');
 
@@ -689,7 +731,7 @@ app.get('/admin/dashboard', isAdmin, async (req, res) => {
     const currentUser = req.app_user;
 
     try {
-        const [usersRows, statsRows, logsRows, vtpRows, todayStatsRows] = await Promise.all([
+        const [usersRows, statsRows, logsRows, vtpRows, settingsRows, todayStatsRows] = await Promise.all([
             db.promise().query(
                 "SELECT * FROM users WHERE username LIKE ? AND username != ?",
                 [`%${search}%`, currentUser]
@@ -697,6 +739,7 @@ app.get('/admin/dashboard', isAdmin, async (req, res) => {
             db.promise().query("SELECT role, COUNT(*) as count FROM users GROUP BY role"),
             db.promise().query("SELECT * FROM logs ORDER BY created_at DESC LIMIT 10"),
             db.promise().query("SELECT * FROM viettel_connect WHERE id = 1"),
+            db.promise().query("SELECT registration_locked FROM app_settings WHERE id = 1"),
             db.promise().query(`
                 SELECT 
                     u.shopname, 
@@ -717,6 +760,7 @@ app.get('/admin/dashboard', isAdmin, async (req, res) => {
             logs: logsRows[0],
             search: search,
             vtpConfig: vtpRows[0][0] || null,
+            registrationLocked: !!(settingsRows[0][0] && settingsRows[0][0].registration_locked),
             todayStats: todayStatsRows[0],
             currentRole: req.app_role,
             active: 'admin_dashboard'
@@ -931,6 +975,7 @@ function applyAddressFixes(sWard, sDist) {
     if (sDist === 'sơn dương' && sWard === 'hồng sơn') sWard = 'hồng lạc';
     if (sDist === 'hớn quản' && sWard === "tân quang") sWard = 'tân quan';
     if (sDist === 'cư mgar' && sWard === "cư m'ga") sWard = 'cư mgar';
+    if (sDist === 'chũ' && sWard === 'quý sơn') sDist = 'lục ngạn';
     if (sDist === 'chũ' && sWard === 'chũ') sDist = 'lục ngạn';
     if (sDist === 'chũ' && sWard === 'thanh hải') sDist = 'lục ngạn';
     if (sDist === 'chũ' && sWard === 'hồng giang') sDist = 'lục ngạn';

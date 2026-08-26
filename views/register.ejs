@@ -16,7 +16,15 @@
                 </div>
             <% } %>
 
+            <% if (typeof registrationLocked !== 'undefined' && registrationLocked) { %>
+                <div class="alert alert-warning">
+                    <i class="fas fa-lock me-1"></i>
+                    Đăng ký tài khoản mới hiện đang tạm khóa. Vui lòng liên hệ quản trị viên.
+                </div>
+            <% } %>
+
             <form action="/register" method="POST">
+                <fieldset <%= (typeof registrationLocked !== 'undefined' && registrationLocked) ? 'disabled' : '' %>>
                 <div class="mb-3">
                     <label class="form-label">Số điện thoại</label>
                     <input type="text" name="username" class="form-control"
@@ -36,6 +44,7 @@
                            minlength="4" required>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 py-2">Tạo tài khoản</button>
+                </fieldset>
             </form>
             <div class="text-center mt-4">
                 <p class="mb-0 text-muted small">Đã có tài khoản? <a href="/login" class="text-decoration-none fw-bold">Đăng nhập</a></p>
