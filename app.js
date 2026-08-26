@@ -16,6 +16,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const { Server } = require("socket.io");
+const otplib = require('otplib');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'tvship_jwt_secret_key_change_in_production_2024!';
 const JWT_EXPIRES_IN = '30d';
@@ -146,6 +147,7 @@ db.getConnection((err, connection) => {
     }
 });
 
+// ── Cài đặt hệ thống (settings toàn cục, ví dụ: khóa đăng ký) ──
 db.query(`
     CREATE TABLE IF NOT EXISTS app_settings (
         id INT PRIMARY KEY DEFAULT 1,
@@ -160,6 +162,66 @@ function getRegistrationLocked(cb) {
     db.query('SELECT registration_locked FROM app_settings WHERE id = 1', (err, results) => {
         if (err || !results || results.length === 0) return cb(false);
         cb(!!results[0].registration_locked);
+    });
+}
+
+// ── 2FA (TOTP - Google/Microsoft Authenticator...) ──
+const APP_2FA_ISSUER = 'TV Ship';
+
+// Thêm cột lưu bí mật 2FA vào bảng users nếu chưa có (an toàn khi chạy lại nhiều lần)
+db.query(`ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL`, (err) => {
+    if (err && err.code !== 'ER_DUP_FIELDNAME') console.error('Lỗi thêm cột totp_secret:', err.message);
+});
+db.query(`ALTER TABLE users ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0`, (err) => {
+    if (err && err.code !== 'ER_DUP_FIELDNAME') console.error('Lỗi thêm cột totp_enabled:', err.message);
+});
+
+// Kiểm tra 1 mã OTP 6 số với secret cho trước (cho phép lệch 1 bước ~30s để tránh lệch giờ thiết bị)
+async function verifyTotpToken(secret, token) {
+    if (!secret || !token) return false;
+    try {
+        const result = await otplib.verify({ token: String(token).trim(), secret, window: 1 });
+        return !!(result && result.valid);
+    } catch (e) {
+        return false;
+    }
+}
+
+// Middleware: bắt buộc nhập đúng mã 2FA của chính ADMIN đang thao tác trước khi
+// cho phép sửa thông tin user (users, KHÔNG phải customers).
+// - Nếu admin chưa bật 2FA -> chặn, yêu cầu vào Trang cá nhân bật 2FA trước.
+// - Nếu người thao tác không phải admin -> bỏ qua (để logic phân quyền gốc của route tự xử lý).
+function require2FA(req, res, next) {
+    if (req.app_role !== 'admin') return next();
+
+    const isApiStyle = req.xhr || req.path.startsWith('/api/') ||
+        (req.headers['content-type'] && req.headers['content-type'].includes('application/json'));
+
+    const respondFail = (status, message, extra) => {
+        if (isApiStyle) return res.status(status).json(Object.assign({ success: false, message }, extra || {}));
+        req.flash('error_msg', message);
+        return res.redirect('/admin/dashboard');
+    };
+
+    db.query('SELECT totp_secret, totp_enabled FROM users WHERE username = ?', [req.app_user], async (err, results) => {
+        if (err || !results || !results.length) {
+            return respondFail(500, 'Lỗi xác thực 2FA.');
+        }
+        const admin = results[0];
+        if (!admin.totp_enabled || !admin.totp_secret) {
+            return respondFail(403, 'Bạn cần bật Xác thực 2 lớp (2FA) trong Trang cá nhân trước khi thực hiện thao tác này.', { require2FASetup: true });
+        }
+
+        const code = req.body.totpCode || req.body.totp_code;
+        if (!code) {
+            return respondFail(400, 'Vui lòng nhập mã 2FA để xác nhận thao tác.', { require2FACode: true });
+        }
+
+        const ok = await verifyTotpToken(admin.totp_secret, code);
+        if (!ok) {
+            return respondFail(400, 'Mã 2FA không đúng hoặc đã hết hạn.');
+        }
+        next();
     });
 }
 
@@ -343,6 +405,21 @@ app.post('/api/login', (req, res) => {
 
             const match = await bcrypt.compare(password, userRecord.password);
             if (match) {
+                // Tài khoản đã tự bật 2FA -> chưa cấp JWT ngay, yêu cầu xác thực mã 2FA trước
+                if (userRecord.totp_enabled && userRecord.totp_secret) {
+                    const preToken = jwt.sign(
+                        { userId: userRecord.id, purpose: '2fa-pending' },
+                        JWT_SECRET,
+                        { expiresIn: '5m' }
+                    );
+                    return res.json({
+                        success: false,
+                        requires2FA: true,
+                        tempToken: preToken,
+                        message: 'Vui lòng nhập mã 2FA từ app Authenticator để hoàn tất đăng nhập.'
+                    });
+                }
+
                 const payload = {
                     username: userRecord.username,
                     role: userRecord.role,
@@ -366,6 +443,52 @@ app.post('/api/login', (req, res) => {
 
         return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu!' });
     });
+});
+
+// Bước 2 của đăng nhập App Mobile khi tài khoản đã bật 2FA
+app.post('/api/login/2fa-verify', async (req, res) => {
+    const { tempToken, code } = req.body;
+    if (!tempToken || !code) {
+        return res.status(400).json({ success: false, message: 'Thiếu tempToken hoặc mã 2FA.' });
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(tempToken, JWT_SECRET);
+    } catch (e) {
+        return res.status(401).json({ success: false, message: 'Phiên xác thực đã hết hạn, vui lòng đăng nhập lại.' });
+    }
+    if (!decoded || decoded.purpose !== '2fa-pending') {
+        return res.status(401).json({ success: false, message: 'Token không hợp lệ.' });
+    }
+
+    try {
+        const [rows] = await db.promise().query('SELECT * FROM users WHERE id = ?', [decoded.userId]);
+        if (!rows.length) return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản.' });
+        const userRecord = rows[0];
+
+        if (userRecord.is_locked) {
+            return res.status(403).json({ success: false, message: 'Tài khoản này đã bị khóa!' });
+        }
+
+        const ok = await verifyTotpToken(userRecord.totp_secret, code);
+        if (!ok) return res.status(400).json({ success: false, message: 'Mã 2FA không đúng.' });
+
+        const payload = { username: userRecord.username, role: userRecord.role, userId: userRecord.id };
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+        createLog('Đã đăng nhập qua App Mobile (2FA)', userRecord.username);
+        return res.json({
+            success: true,
+            message: 'Đăng nhập thành công',
+            token: token,
+            expires_in: '30d',
+            user: { username: userRecord.username, role: userRecord.role }
+        });
+    } catch (e) {
+        console.error('Lỗi xác thực 2FA mobile:', e);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+    }
 });
 
 app.get('/api/profile', isAuth, (req, res) => {
@@ -398,6 +521,16 @@ app.post('/login', (req, res) => {
             }
             const match = await bcrypt.compare(password, userRecord.password);
             if (match) {
+                // Tài khoản đã tự bật 2FA -> chuyển sang bước nhập mã trước khi cấp phiên đăng nhập
+                if (userRecord.totp_enabled && userRecord.totp_secret) {
+                    req.session.pending2FA = {
+                        userId: userRecord.id,
+                        username: userRecord.username,
+                        role: userRecord.role
+                    };
+                    return res.redirect('/login/2fa');
+                }
+
                 const payload = {
                     username: userRecord.username,
                     role: userRecord.role,
@@ -420,6 +553,60 @@ app.post('/login', (req, res) => {
         req.flash('error_msg', 'Sai tài khoản hoặc mật khẩu!');
         res.redirect('/login');
     });
+});
+
+// ── Bước 2: nhập mã 2FA khi đăng nhập web (chỉ áp dụng cho tài khoản đã tự bật 2FA) ──
+app.get('/login/2fa', (req, res) => {
+    if (!req.session.pending2FA) return res.redirect('/login');
+    res.render('login_2fa', { username: req.session.pending2FA.username });
+});
+
+app.post('/login/2fa', async (req, res) => {
+    const pending = req.session.pending2FA;
+    if (!pending) return res.redirect('/login');
+
+    const { code } = req.body;
+    try {
+        const [rows] = await db.promise().query('SELECT totp_secret, is_locked FROM users WHERE id = ?', [pending.userId]);
+        if (!rows.length) {
+            delete req.session.pending2FA;
+            req.flash('error_msg', 'Không tìm thấy tài khoản.');
+            return res.redirect('/login');
+        }
+        if (rows[0].is_locked) {
+            delete req.session.pending2FA;
+            req.flash('error_msg', 'Tài khoản này đã bị khóa!');
+            return res.redirect('/login');
+        }
+
+        const ok = await verifyTotpToken(rows[0].totp_secret, code);
+        if (!ok) {
+            req.flash('error_msg', 'Mã xác thực 2FA không đúng. Vui lòng thử lại.');
+            return res.redirect('/login/2fa');
+        }
+
+        const payload = { username: pending.username, role: pending.role, userId: pending.userId };
+        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+        res.cookie('jwt_token', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            maxAge: 30 * 24 * 60 * 60 * 1000
+        });
+
+        createLog('Đã đăng nhập vào hệ thống (2FA)', pending.username);
+        delete req.session.pending2FA;
+        res.redirect(pending.role === 'admin' ? '/admin/dashboard' : '/orders');
+    } catch (e) {
+        console.error('Lỗi xác thực 2FA login:', e);
+        req.flash('error_msg', 'Lỗi hệ thống, vui lòng thử lại.');
+        res.redirect('/login/2fa');
+    }
+});
+
+app.get('/login/2fa/cancel', (req, res) => {
+    delete req.session.pending2FA;
+    res.redirect('/login');
 });
 app.post('/ghn', function (req, res) {
     console.log(req.body)
@@ -572,7 +759,7 @@ app.post('/jtex', function (req, res) {
 
 app.use(isAuth);//Chỉ có login và register nằm trước cái này
 
-app.post('/admin/toggle-lock/:id', isAdmin, (req, res) => {
+app.post('/admin/toggle-lock/:id', isAdmin, require2FA, (req, res) => {
     db.query('UPDATE users SET is_locked = NOT is_locked WHERE id = ?', [req.params.id], (err) => {
         createLog(`Thay đổi trạng thái khóa User ID: ${req.params.id}`, req.app_user);
         res.redirect('/admin/dashboard');
@@ -580,7 +767,7 @@ app.post('/admin/toggle-lock/:id', isAdmin, (req, res) => {
 });
 
 // Khóa/mở đăng ký tài khoản mới - chỉ admin mới có quyền (đã có isAdmin chặn manager/user)
-app.post('/admin/toggle-registration-lock', isAdmin, (req, res) => {
+app.post('/admin/toggle-registration-lock', isAdmin, require2FA, (req, res) => {
     db.query('UPDATE app_settings SET registration_locked = NOT registration_locked WHERE id = 1', (err) => {
         if (err) {
             console.error('Lỗi toggle registration lock:', err.message);
@@ -663,6 +850,7 @@ app.get('/profile', async (req, res) => {
             show_cod: userData.show_cod !== undefined ? userData.show_cod : 1,
             use_socket_print: userData.use_socket_print !== undefined ? userData.use_socket_print : 0,
             todayStats: todayStats,
+            totp_enabled: !!userData.totp_enabled,
             active: 'profile'
         });
 
@@ -681,17 +869,31 @@ app.post('/profile/upload-avatar', isAuth, upload.single('avatar'), (req, res) =
 });
 
 app.post('/profile/change-password', isAuth, async (req, res) => {
-    const { oldPassword, newPassword, confirmPassword } = req.body;
+    const { oldPassword, newPassword, confirmPassword, totpCode } = req.body;
     if (newPassword !== confirmPassword) {
         req.flash('error_msg', 'Mật khẩu mới không khớp.');
         return res.redirect('/profile');
     }
-    db.query('SELECT password FROM users WHERE username = ?', [req.app_user], async (err, results) => {
+    db.query('SELECT password, totp_secret, totp_enabled FROM users WHERE username = ?', [req.app_user], async (err, results) => {
+        if (err || !results || !results.length) {
+            req.flash('error_msg', 'Lỗi hệ thống.');
+            return res.redirect('/profile');
+        }
         const match = await bcrypt.compare(oldPassword, results[0].password);
         if (!match) {
             req.flash('error_msg', 'Mật khẩu cũ không đúng.');
             return res.redirect('/profile');
         }
+
+        // Tài khoản đã bật 2FA -> bắt buộc nhập đúng mã 2FA mới cho đổi mật khẩu
+        if (results[0].totp_enabled) {
+            const ok = await verifyTotpToken(results[0].totp_secret, totpCode);
+            if (!ok) {
+                req.flash('error_msg', 'Mã 2FA không đúng. Vui lòng thử lại.');
+                return res.redirect('/profile');
+            }
+        }
+
         const hashed = await bcrypt.hash(newPassword, 10);
         db.query('UPDATE users SET password = ? WHERE username = ?', [hashed, req.app_user], (err) => {
             req.flash('success_msg', 'Đổi mật khẩu thành công.');
@@ -701,7 +903,7 @@ app.post('/profile/change-password', isAuth, async (req, res) => {
 });
 
 app.post('/api/change-password', isAuth, async (req, res) => {
-    const { oldPassword, newPassword, confirmPassword } = req.body;
+    const { oldPassword, newPassword, confirmPassword, totpCode } = req.body;
     const username = req.app_user;
 
     if (newPassword !== confirmPassword) {
@@ -709,12 +911,20 @@ app.post('/api/change-password', isAuth, async (req, res) => {
     }
 
     try {
-        const [rows] = await db.promise().query('SELECT password FROM users WHERE username = ?', [username]);
+        const [rows] = await db.promise().query('SELECT password, totp_secret, totp_enabled FROM users WHERE username = ?', [username]);
         if (rows.length === 0) return res.status(404).json({ success: false, message: 'User không tồn tại.' });
 
         const match = await bcrypt.compare(oldPassword, rows[0].password);
         if (!match) {
             return res.status(400).json({ success: false, message: 'Mật khẩu cũ không đúng.' });
+        }
+
+        // Tài khoản đã bật 2FA -> bắt buộc nhập đúng mã 2FA mới cho đổi mật khẩu
+        if (rows[0].totp_enabled) {
+            const ok = await verifyTotpToken(rows[0].totp_secret, totpCode);
+            if (!ok) {
+                return res.status(400).json({ success: false, message: 'Mã 2FA không đúng.', require2FACode: true });
+            }
         }
 
         const hashed = await bcrypt.hash(newPassword, 10);
@@ -726,12 +936,79 @@ app.post('/api/change-password', isAuth, async (req, res) => {
     }
 });
 
+// ── Tự cài đặt 2FA (TOTP) trong Trang cá nhân ──
+app.post('/api/2fa/setup', isAuth, async (req, res) => {
+    try {
+        const secret = await otplib.generateSecret();
+        req.session.totp_setup_secret = secret;
+        req.session.totp_setup_user = req.app_user;
+
+        const otpauthUrl = otplib.generateURI({ issuer: APP_2FA_ISSUER, label: req.app_user, secret });
+        const qrDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+        res.json({ success: true, secret, qrDataUrl });
+    } catch (e) {
+        console.error('Lỗi tạo 2FA:', e);
+        res.status(500).json({ success: false, message: 'Không thể tạo mã 2FA lúc này.' });
+    }
+});
+
+app.post('/api/2fa/enable', isAuth, async (req, res) => {
+    const { code } = req.body;
+    const secret = req.session.totp_setup_secret;
+
+    if (!secret || req.session.totp_setup_user !== req.app_user) {
+        return res.status(400).json({ success: false, message: 'Phiên thiết lập 2FA đã hết hạn, vui lòng bấm Bật 2FA lại.' });
+    }
+
+    const ok = await verifyTotpToken(secret, code);
+    if (!ok) {
+        return res.status(400).json({ success: false, message: 'Mã xác thực không đúng. Vui lòng kiểm tra lại app Authenticator.' });
+    }
+
+    try {
+        await db.promise().query('UPDATE users SET totp_secret = ?, totp_enabled = 1 WHERE username = ?', [secret, req.app_user]);
+        delete req.session.totp_setup_secret;
+        delete req.session.totp_setup_user;
+        createLog('Đã bật Xác thực 2 lớp (2FA)', req.app_user);
+        res.json({ success: true, message: 'Đã bật Xác thực 2 lớp thành công!' });
+    } catch (e) {
+        console.error('Lỗi bật 2FA:', e);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+    }
+});
+
+app.post('/api/2fa/disable', isAuth, async (req, res) => {
+    const { code } = req.body;
+    try {
+        const [rows] = await db.promise().query('SELECT totp_secret, totp_enabled FROM users WHERE username = ?', [req.app_user]);
+        if (!rows.length) return res.status(404).json({ success: false, message: 'Không tìm thấy user.' });
+        const u = rows[0];
+
+        if (!u.totp_enabled) {
+            return res.json({ success: true, message: '2FA đã tắt sẵn.' });
+        }
+
+        const ok = await verifyTotpToken(u.totp_secret, code);
+        if (!ok) {
+            return res.status(400).json({ success: false, message: 'Mã 2FA không đúng. Vui lòng nhập mã hiện tại từ app Authenticator để xác nhận tắt.' });
+        }
+
+        await db.promise().query('UPDATE users SET totp_secret = NULL, totp_enabled = 0 WHERE username = ?', [req.app_user]);
+        createLog('Đã tắt Xác thực 2 lớp (2FA)', req.app_user);
+        res.json({ success: true, message: 'Đã tắt Xác thực 2 lớp.' });
+    } catch (e) {
+        console.error('Lỗi tắt 2FA:', e);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+    }
+});
+
 app.get('/admin/dashboard', isAdmin, async (req, res) => {
     const search = req.query.search || '';
     const currentUser = req.app_user;
 
     try {
-        const [usersRows, statsRows, logsRows, vtpRows, settingsRows, todayStatsRows] = await Promise.all([
+        const [usersRows, statsRows, logsRows, vtpRows, settingsRows, todayStatsRows, admin2FARows] = await Promise.all([
             db.promise().query(
                 "SELECT * FROM users WHERE username LIKE ? AND username != ?",
                 [`%${search}%`, currentUser]
@@ -751,7 +1028,8 @@ app.get('/admin/dashboard', isAdmin, async (req, res) => {
                 WHERE o.created_at >= NOW() - INTERVAL 72 HOUR AND o.status='pending'
                 GROUP BY u.id
                 ORDER BY total_orders DESC
-            `)
+            `),
+            db.promise().query("SELECT totp_enabled FROM users WHERE username = ?", [currentUser])
         ]);
 
         res.render('admin_dashboard', {
@@ -763,6 +1041,7 @@ app.get('/admin/dashboard', isAdmin, async (req, res) => {
             registrationLocked: !!(settingsRows[0][0] && settingsRows[0][0].registration_locked),
             todayStats: todayStatsRows[0],
             currentRole: req.app_role,
+            admin2FAEnabled: !!(admin2FARows[0][0] && admin2FARows[0][0].totp_enabled),
             active: 'admin_dashboard'
         });
 
@@ -774,7 +1053,7 @@ app.get('/admin/dashboard', isAdmin, async (req, res) => {
 
 
 
-app.post('/admin/delete/:id', isAdmin, async (req, res) => {
+app.post('/admin/delete/:id', isAdmin, require2FA, async (req, res) => {
     const targetId = req.params.id;
     const adminUsername = req.app_user;
 
@@ -792,7 +1071,7 @@ app.post('/admin/delete/:id', isAdmin, async (req, res) => {
     }
 });
 
-app.post('/admin/change-role/:id', isAdmin, async (req, res) => {
+app.post('/admin/change-role/:id', isAdmin, require2FA, async (req, res) => {
     const { newRole } = req.body;
     const targetId = req.params.id;
 
@@ -1838,7 +2117,7 @@ app.get('/api/orders', isAuth, async (req, res) => {
     }
 });
 
-app.post('/admin/update-vtp-system', isAdmin, async (req, res) => {
+app.post('/admin/update-vtp-system', isAdmin, require2FA, async (req, res) => {
     const { vtp_user, vtp_pass } = req.body;
 
     try {
@@ -2834,7 +3113,7 @@ app.get('/api/orders/track-jt/:billCode', async (req, res) => {
     }
 });
 
-app.post('/admin/update-user-price', isManager, async (req, res) => {
+app.post('/admin/update-user-price', isManager, require2FA, async (req, res) => {
     if (req.app_role !== 'admin') {
         return res.status(403).json({ success: false, message: 'Bạn không có quyền thay đổi giá cước!' });
     }
@@ -2894,7 +3173,7 @@ app.post('/admin/import-customers', isAdmin, async (req, res) => {
     }
 });
 
-app.post('/api/admin/update-user-jt', isAdmin, async (req, res) => {
+app.post('/api/admin/update-user-jt', isAdmin, require2FA, async (req, res) => {
     const {
         target_user_id, jt_shopname, jt_sdt,
         jt_shopaddress, jt_shop_prov, jt_shop_district, jt_shop_ward

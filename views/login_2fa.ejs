@@ -1,0 +1,42 @@
+<%- include('partials/header') %>
+
+<div class="auth-wrap d-flex align-items-center justify-content-center">
+    <div class="col-11 col-sm-8 col-md-5 col-lg-4">
+        <div class="text-center mb-4">
+            <img src="/logo.png" alt="TV Ship" style="height: 48px;">
+        </div>
+        <div class="card border-0 shadow-lg p-4 p-md-5">
+            <div class="text-center mb-3">
+                <i class="fas fa-shield-halved" style="font-size: 2.5rem; color: #0d6efd;"></i>
+            </div>
+            <h3 class="text-center fw-bold mb-1">Xác thực 2 lớp</h3>
+            <p class="text-center text-muted small mb-4">
+                Tài khoản <strong><%= username %></strong> đã bật 2FA.<br>
+                Nhập mã 6 số từ app Authenticator để tiếp tục.
+            </p>
+
+            <%- include('partials/messages') %>
+
+            <form action="/login/2fa" method="POST">
+                <div class="mb-3">
+                    <input type="text" name="code" class="form-control form-control-lg text-center"
+                        placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code"
+                        style="letter-spacing: 6px; font-weight: 700;" autofocus required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2">Xác nhận</button>
+            </form>
+
+            <div class="text-center mt-4">
+                <a href="/login/2fa/cancel" class="small text-decoration-none text-muted">
+                    <i class="fas fa-arrow-left me-1"></i>Quay lại đăng nhập
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.auth-wrap { min-height: calc(100vh - 90px); padding: 24px 0; }
+</style>
+
+<%- include('partials/footer', { active: 'orders' }) %>

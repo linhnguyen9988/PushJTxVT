@@ -65,26 +65,35 @@
                 <% } %>
 
                 <div class="card border-0 shadow-sm p-4 text-start">
-                    <h6 class="fw-bold mb-3"><i class="fas fa-key me-2 text-muted"></i>Đổi mật khẩu</h6>
                     <%- include('partials/messages') %>
-                        <form action="/profile/change-password" method="POST">
-                            <div class="mb-2">
-                                <input type="password" name="oldPassword"
-                                    class="form-control form-control-sm shadow-none" placeholder="Mật khẩu hiện tại"
-                                    required>
-                            </div>
-                            <div class="mb-2">
-                                <input type="password" name="newPassword"
-                                    class="form-control form-control-sm shadow-none"
-                                    placeholder="Mật khẩu mới (min 4 ký tự)" minlength="4" required>
-                            </div>
-                            <div class="mb-3">
-                                <input type="password" name="confirmPassword"
-                                    class="form-control form-control-sm shadow-none" placeholder="Xác nhận mật khẩu mới"
-                                    required>
-                            </div>
-                            <button class="btn btn-outline-success btn-sm w-100 shadow-sm">Lưu thay đổi</button>
-                        </form>
+                    <h6 class="fw-bold mb-3"><i class="fas fa-key me-2 text-muted"></i>Mật khẩu</h6>
+                    <p class="text-muted small mb-3">Đổi mật khẩu đăng nhập tài khoản của bạn.</p>
+                    <button type="button" class="btn btn-outline-success btn-sm w-100 shadow-sm"
+                        onclick="openChangePasswordModal()">
+                        <i class="fas fa-key me-1"></i> Đổi mật khẩu
+                    </button>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 text-start mt-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-shield-halved me-2 text-muted"></i>Xác thực 2 lớp (2FA)</h6>
+                        <span id="tfa-status-badge" class="badge <%= totp_enabled ? 'bg-success' : 'bg-secondary' %>">
+                            <%= totp_enabled ? 'Đã bật' : 'Chưa bật' %>
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Dùng app Authenticator (Google Authenticator, Microsoft Authenticator...) để bảo vệ đăng nhập,
+                        đổi mật khẩu<% if (role === 'admin') { %> và các thao tác sửa thông tin người dùng trong Admin Panel<% } %>.
+                    </p>
+                    <% if (totp_enabled) { %>
+                        <button type="button" class="btn btn-outline-danger btn-sm w-100 shadow-sm" onclick="openDisable2FAModal()">
+                            <i class="fas fa-shield-slash me-1"></i> Tắt 2FA
+                        </button>
+                    <% } else { %>
+                        <button type="button" class="btn btn-outline-primary btn-sm w-100 shadow-sm" onclick="openSetup2FAModal()">
+                            <i class="fas fa-shield-halved me-1"></i> Bật 2FA
+                        </button>
+                    <% } %>
                 </div>
 
                 <div class="card border-0 shadow-sm p-4 text-start mt-4">
@@ -394,6 +403,86 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Modal: Đổi mật khẩu (riêng biệt) -->
+            <div id="change-password-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg" style="min-width: 320px; max-width: 420px; width: 90%;">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-key me-2 text-success"></i>Đổi mật khẩu</h5>
+                    <div class="mb-2">
+                        <label class="small fw-bold mb-1">Mật khẩu hiện tại</label>
+                        <input type="password" id="cp-old" class="form-control form-control-sm shadow-none" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="small fw-bold mb-1">Mật khẩu mới</label>
+                        <input type="password" id="cp-new" class="form-control form-control-sm shadow-none" minlength="4" required>
+                        <div class="form-text" style="font-size:0.72rem;">Tối thiểu 4 ký tự.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold mb-1">Xác nhận mật khẩu mới</label>
+                        <input type="password" id="cp-confirm" class="form-control form-control-sm shadow-none" required>
+                    </div>
+                    <% if (totp_enabled) { %>
+                    <div class="mb-3">
+                        <label class="small fw-bold mb-1"><i class="fas fa-shield-halved me-1 text-primary"></i>Mã 2FA</label>
+                        <input type="text" id="cp-totp" class="form-control form-control-sm shadow-none" placeholder="Nhập mã 6 số từ app Authenticator" inputmode="numeric" maxlength="6" required>
+                    </div>
+                    <% } %>
+                    <div id="cp-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeChangePasswordModal()">Hủy</button>
+                        <button class="btn btn-success flex-grow-1" id="cp-submit-btn" onclick="submitChangePassword()">Lưu thay đổi</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Thiết lập 2FA -->
+            <div id="setup-2fa-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 420px; width: 90%;">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-shield-halved me-2 text-primary"></i>Bật Xác thực 2 lớp</h5>
+
+                    <div id="tfa-setup-loading" class="text-center text-muted py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2 d-block"></i> Đang tạo mã bảo mật...
+                    </div>
+
+                    <div id="tfa-setup-body" style="display:none;">
+                        <p class="small text-muted mb-2">
+                            1. Mở app Authenticator (Google Authenticator, Microsoft Authenticator...) và quét mã QR dưới đây:
+                        </p>
+                        <div class="text-center mb-3">
+                            <img id="tfa-qr-img" src="" alt="QR 2FA" style="width:180px;height:180px;border:1px solid #dee2e6;border-radius:8px;">
+                        </div>
+                        <p class="small text-muted mb-1">Hoặc nhập thủ công mã bí mật này vào app:</p>
+                        <div class="input-group input-group-sm mb-3">
+                            <input type="text" id="tfa-secret-text" class="form-control" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyTfaSecret()"><i class="fas fa-copy"></i></button>
+                        </div>
+                        <p class="small text-muted mb-1">2. Nhập mã 6 số hiện tại từ app để xác nhận:</p>
+                        <input type="text" id="tfa-confirm-code" class="form-control mb-3" placeholder="000000" inputmode="numeric" maxlength="6">
+                        <div id="tfa-setup-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-light flex-grow-1" onclick="closeSetup2FAModal()">Hủy</button>
+                            <button class="btn btn-primary flex-grow-1" id="tfa-enable-btn" onclick="confirmEnable2FA()">Xác nhận & Bật</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal: Tắt 2FA -->
+            <div id="disable-2fa-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 400px; width: 90%;">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-shield-slash me-2 text-danger"></i>Tắt Xác thực 2 lớp</h5>
+                    <p class="small text-muted mb-2">Nhập mã 6 số hiện tại từ app Authenticator để xác nhận tắt 2FA.</p>
+                    <input type="text" id="disable-tfa-code" class="form-control mb-3" placeholder="000000" inputmode="numeric" maxlength="6">
+                    <div id="tfa-disable-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeDisable2FAModal()">Hủy</button>
+                        <button class="btn btn-danger flex-grow-1" id="tfa-disable-btn" onclick="confirmDisable2FA()">Xác nhận tắt</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -639,6 +728,166 @@
                 }
             });
         })();
+    </script>
+
+    <script>
+        // ═══ Đổi mật khẩu (modal riêng) ═══
+        function openChangePasswordModal() {
+            document.getElementById('cp-old').value = '';
+            document.getElementById('cp-new').value = '';
+            document.getElementById('cp-confirm').value = '';
+            const totpEl = document.getElementById('cp-totp');
+            if (totpEl) totpEl.value = '';
+            document.getElementById('cp-error').style.display = 'none';
+            document.getElementById('change-password-modal-overlay').style.display = 'flex';
+        }
+        function closeChangePasswordModal() {
+            document.getElementById('change-password-modal-overlay').style.display = 'none';
+        }
+
+        async function submitChangePassword() {
+            const oldPassword = document.getElementById('cp-old').value;
+            const newPassword = document.getElementById('cp-new').value;
+            const confirmPassword = document.getElementById('cp-confirm').value;
+            const totpEl = document.getElementById('cp-totp');
+            const totpCode = totpEl ? totpEl.value.trim() : undefined;
+            const errEl = document.getElementById('cp-error');
+            errEl.style.display = 'none';
+
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                errEl.textContent = 'Vui lòng nhập đầy đủ thông tin.'; errEl.style.display = 'block'; return;
+            }
+            if (newPassword !== confirmPassword) {
+                errEl.textContent = 'Mật khẩu mới không khớp.'; errEl.style.display = 'block'; return;
+            }
+            if (totpEl && !totpCode) {
+                errEl.textContent = 'Vui lòng nhập mã 2FA.'; errEl.style.display = 'block'; return;
+            }
+
+            const btn = document.getElementById('cp-submit-btn');
+            btn.disabled = true; const origHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+            try {
+                const res = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oldPassword, newPassword, confirmPassword, totpCode })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeChangePasswordModal();
+                    showNotice('Thành công', data.message || 'Đổi mật khẩu thành công.', 'success');
+                } else {
+                    errEl.textContent = data.message || 'Không thể đổi mật khẩu.'; errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối server.'; errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false; btn.innerHTML = origHtml;
+            }
+        }
+
+        // ═══ Bật 2FA ═══
+        async function openSetup2FAModal() {
+            document.getElementById('setup-2fa-modal-overlay').style.display = 'flex';
+            document.getElementById('tfa-setup-loading').style.display = 'block';
+            document.getElementById('tfa-setup-body').style.display = 'none';
+            document.getElementById('tfa-setup-error').style.display = 'none';
+            document.getElementById('tfa-confirm-code').value = '';
+
+            try {
+                const res = await fetch('/api/2fa/setup', { method: 'POST' });
+                const data = await res.json();
+                if (!data.success) {
+                    closeSetup2FAModal();
+                    showNotice('Lỗi', data.message || 'Không thể tạo mã 2FA.', 'error');
+                    return;
+                }
+                document.getElementById('tfa-qr-img').src = data.qrDataUrl;
+                document.getElementById('tfa-secret-text').value = data.secret;
+                document.getElementById('tfa-setup-loading').style.display = 'none';
+                document.getElementById('tfa-setup-body').style.display = 'block';
+            } catch (e) {
+                closeSetup2FAModal();
+                showNotice('Lỗi', 'Lỗi kết nối server.', 'error');
+            }
+        }
+        function closeSetup2FAModal() {
+            document.getElementById('setup-2fa-modal-overlay').style.display = 'none';
+        }
+        function copyTfaSecret() {
+            const el = document.getElementById('tfa-secret-text');
+            el.select(); el.setSelectionRange(0, 99999);
+            try { document.execCommand('copy'); } catch (e) {}
+            if (navigator.clipboard) navigator.clipboard.writeText(el.value).catch(() => {});
+        }
+        async function confirmEnable2FA() {
+            const code = document.getElementById('tfa-confirm-code').value.trim();
+            const errEl = document.getElementById('tfa-setup-error');
+            errEl.style.display = 'none';
+            if (!code || code.length < 6) {
+                errEl.textContent = 'Vui lòng nhập đủ mã 6 số.'; errEl.style.display = 'block'; return;
+            }
+            const btn = document.getElementById('tfa-enable-btn');
+            btn.disabled = true; const orig = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang xác nhận...';
+            try {
+                const res = await fetch('/api/2fa/enable', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeSetup2FAModal();
+                    showNotice('Thành công', data.message || 'Đã bật 2FA.', 'success');
+                    window.needsReload = true;
+                } else {
+                    errEl.textContent = data.message || 'Mã không đúng.'; errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối server.'; errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false; btn.innerHTML = orig;
+            }
+        }
+
+        // ═══ Tắt 2FA ═══
+        function openDisable2FAModal() {
+            document.getElementById('disable-tfa-code').value = '';
+            document.getElementById('tfa-disable-error').style.display = 'none';
+            document.getElementById('disable-2fa-modal-overlay').style.display = 'flex';
+        }
+        function closeDisable2FAModal() {
+            document.getElementById('disable-2fa-modal-overlay').style.display = 'none';
+        }
+        async function confirmDisable2FA() {
+            const code = document.getElementById('disable-tfa-code').value.trim();
+            const errEl = document.getElementById('tfa-disable-error');
+            errEl.style.display = 'none';
+            if (!code) { errEl.textContent = 'Vui lòng nhập mã 2FA.'; errEl.style.display = 'block'; return; }
+
+            const btn = document.getElementById('tfa-disable-btn');
+            btn.disabled = true; const orig = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang xử lý...';
+            try {
+                const res = await fetch('/api/2fa/disable', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeDisable2FAModal();
+                    showNotice('Thành công', data.message || 'Đã tắt 2FA.', 'success');
+                    window.needsReload = true;
+                } else {
+                    errEl.textContent = data.message || 'Mã không đúng.'; errEl.style.display = 'block';
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối server.'; errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false; btn.innerHTML = orig;
+            }
+        }
     </script>
 
     <%- include('partials/footer', { active: 'profile' }) %>

@@ -27,6 +27,7 @@
     "multer": "^2.0.2",
     "mysql2": "^3.16.0",
     "nodemailer": "^7.0.12",
+    "otplib": "^13.5.0",
     "pdfkit": "^0.18.0",
     "qrcode": "^1.5.4",
     "request": "^2.88.2",

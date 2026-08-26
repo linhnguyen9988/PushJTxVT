@@ -3,7 +3,8 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
   :root {
-
+    /* Mapped to the site-wide theme tokens (public/css/style.css) so this
+       page follows the light/dark toggle instead of staying hard-coded dark. */
     --surface: var(--surface-card);
     --surface2: var(--ink-100);
     --border: var(--surface-border);
@@ -391,6 +392,7 @@
   ::-webkit-scrollbar-track { background: var(--surface); }
   ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
 
+  /* ── Toggle switch (khóa đăng ký, v.v.) ── */
   .reg-lock-row {
     display: flex;
     align-items: center;
@@ -440,6 +442,17 @@
     <input type="file" id="excelInput" accept=".xlsx, .xls" style="display:none;" onchange="handleExcel(this)">
   </div>
 
+  <% if (currentRole === 'admin' && !admin2FAEnabled) { %>
+  <div class="alert alert-warning d-flex align-items-center gap-2 mb-4" style="border-radius:12px;">
+    <i class="fas fa-shield-halved"></i>
+    <div class="flex-grow-1">
+      Bạn chưa bật <strong>Xác thực 2 lớp (2FA)</strong>. Mọi thao tác sửa thông tin người dùng (giá cước, kho J&T, khóa/mở khóa,
+      đổi quyền, xóa), khóa/mở đăng ký tài khoản mới và cập nhật token Viettel Post sẽ bị chặn cho tới khi bạn bật 2FA.
+    </div>
+    <a href="/profile" class="btn btn-sm btn-warning text-nowrap">Bật 2FA ngay</a>
+  </div>
+  <% } %>
+
   <div class="row g-4">
 
     <!-- ── LEFT COLUMN ── -->
@@ -463,15 +476,7 @@
               <% } %>
             </div>
           </div>
-          <div class="mb-2">
-            <label class="adm-label">SĐT Viettel Post</label>
-            <input type="text" id="vtp_user" class="adm-input" placeholder="Số điện thoại..." value="<%= vtpConfig ? vtpConfig.vtp_username : '' %>">
-          </div>
-          <div class="mb-3">
-            <label class="adm-label">Mật khẩu</label>
-            <input type="password" id="vtp_pass" class="adm-input" placeholder="••••••••" value="<%= vtpConfig ? vtpConfig.vtp_password : '' %>">
-          </div>
-          <button onclick="connectVTPAdmin()" class="btn-accent w-100">
+          <button onclick="openVtpModal()" class="btn-accent w-100">
             <i class="fas fa-key me-1"></i> Cập nhật token hệ thống
           </button>
         </div>
@@ -649,14 +654,16 @@
                     <button class="btn-ghost" data-id="<%= row.id %>" data-username="<%= row.username %>" onclick="openExportModal(parseInt(this.dataset.id), this.dataset.username)">
                       <i class="fas fa-file-export"></i> Xuất đơn
                     </button>
-                    <form action="/admin/toggle-lock/<%= row.id %>" method="POST" style="margin:0;">
-                      <button class="btn-ghost <%= row.is_locked ? '' : 'danger' %>" style="width:100%;justify-content:center;">
+                    <form id="lock-form-<%= row.id %>" action="/admin/toggle-lock/<%= row.id %>" method="POST" style="margin:0;">
+                      <input type="hidden" name="totpCode" id="lock-totp-<%= row.id %>">
+                      <button type="button" onclick="submitWith2FA('lock-form-<%= row.id %>','lock-totp-<%= row.id %>')" class="btn-ghost <%= row.is_locked ? '' : 'danger' %>" style="width:100%;justify-content:center;">
                         <i class="fas fa-<%= row.is_locked ? 'lock-open' : 'lock' %>"></i>
                         <%= row.is_locked ? 'Mở khóa' : 'Khóa' %>
                       </button>
                     </form>
-                    <form action="/admin/delete/<%= row.id %>" method="POST" onsubmit="return confirm('Xóa vĩnh viễn user này?')" style="margin:0;">
-                      <button class="btn-ghost danger" style="width:100%;justify-content:center;">
+                    <form id="delete-form-<%= row.id %>" action="/admin/delete/<%= row.id %>" method="POST" style="margin:0;">
+                      <input type="hidden" name="totpCode" id="delete-totp-<%= row.id %>">
+                      <button type="button" onclick="if(confirm('Xóa vĩnh viễn user này?')) submitWith2FA('delete-form-<%= row.id %>','delete-totp-<%= row.id %>')" class="btn-ghost danger" style="width:100%;justify-content:center;">
                         <i class="fas fa-trash"></i> Xóa
                       </button>
                     </form>
@@ -793,6 +800,42 @@
   </div>
 </div>
 
+<!-- Modal: Cập nhật token hệ thống Viettel Post -->
+<div id="vtp-modal"
+  style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;">
+  <div class="bg-white p-4 rounded shadow-lg text-start" style="width:380px;max-width:92%;">
+    <h5 class="fw-bold mb-3"><i class="fas fa-key me-2" style="color:var(--accent2)"></i>Cập nhật token Viettel Post</h5>
+    <div class="mb-2">
+      <label class="adm-label">SĐT Viettel Post</label>
+      <input type="text" id="vtp_user" class="adm-input" placeholder="Số điện thoại..." value="<%= vtpConfig ? vtpConfig.vtp_username : '' %>">
+    </div>
+    <div class="mb-3">
+      <label class="adm-label">Mật khẩu</label>
+      <input type="password" id="vtp_pass" class="adm-input" placeholder="••••••••" value="<%= vtpConfig ? vtpConfig.vtp_password : '' %>">
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-light flex-grow-1" onclick="closeVtpModal()">Hủy</button>
+      <button type="button" class="btn-accent flex-grow-1" onclick="connectVTPAdmin()">
+        <i class="fas fa-key me-1"></i> Cập nhật
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: nhập mã 2FA để xác nhận thao tác sửa thông tin user -->
+<div id="admin-2fa-modal"
+  style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;">
+  <div class="bg-white p-4 rounded shadow-lg text-start" style="width:360px;max-width:92%;">
+    <h5 class="fw-bold mb-2"><i class="fas fa-shield-halved me-2 text-primary"></i>Xác nhận 2FA</h5>
+    <p class="small text-muted mb-2">Nhập mã 6 số từ app Authenticator của bạn để xác nhận thao tác này trên tài khoản người dùng.</p>
+    <input type="text" id="admin2fa-code" class="form-control mb-2" placeholder="000000" inputmode="numeric" maxlength="6">
+    <div class="d-flex gap-2 mt-3">
+      <button type="button" class="btn btn-light flex-grow-1" onclick="cancel2FAModal()">Hủy</button>
+      <button type="button" class="btn btn-primary flex-grow-1" onclick="confirm2FAModal()">Xác nhận</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-edit-order"
   style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;width:500px;max-width:94%;max-height:90vh;overflow-y:auto;">
@@ -836,12 +879,59 @@
 
 <script>
   const CURRENT_ROLE = "<%= currentRole %>";
+  const ADMIN_2FA_ENABLED = <%- admin2FAEnabled ? 'true' : 'false' %>;
+
+  // ═══ Modal xác nhận 2FA dùng chung cho các thao tác sửa thông tin user ═══
+  let _pending2FAResolve = null;
+  function open2FAModal() {
+    return new Promise((resolve) => {
+      _pending2FAResolve = resolve;
+      const input = document.getElementById('admin2fa-code');
+      input.value = '';
+      document.getElementById('admin-2fa-modal').style.display = 'flex';
+      setTimeout(() => input.focus(), 50);
+    });
+  }
+  function confirm2FAModal() {
+    const code = document.getElementById('admin2fa-code').value.trim();
+    if (!code || code.length < 6) { showNotice('Cảnh báo', 'Nhập đủ mã 6 số từ app Authenticator!', 'warning'); return; }
+    document.getElementById('admin-2fa-modal').style.display = 'none';
+    if (_pending2FAResolve) { const r = _pending2FAResolve; _pending2FAResolve = null; r(code); }
+  }
+  function cancel2FAModal() {
+    document.getElementById('admin-2fa-modal').style.display = 'none';
+    if (_pending2FAResolve) { const r = _pending2FAResolve; _pending2FAResolve = null; r(null); }
+  }
+
+  // Yêu cầu mã 2FA rồi submit 1 form (dùng cho Khóa/Mở khóa, Xóa user)
+  async function submitWith2FA(formId, hiddenFieldId) {
+    if (CURRENT_ROLE === 'admin' && !ADMIN_2FA_ENABLED) {
+      showNotice('Cần bật 2FA', 'Bạn cần bật Xác thực 2 lớp (2FA) trong Trang cá nhân trước khi thực hiện thao tác này trên tài khoản người dùng.', 'warning');
+      return;
+    }
+    const code = await open2FAModal();
+    if (!code) return;
+    document.getElementById(hiddenFieldId).value = code;
+    document.getElementById(formId).submit();
+  }
 
   async function toggleRegistrationLock(checkbox) {
     const prevState = !checkbox.checked; // trạng thái trước khi bấm
+
+    if (!ADMIN_2FA_ENABLED) {
+      checkbox.checked = prevState;
+      showNotice('Cần bật 2FA', 'Bạn cần bật Xác thực 2 lớp (2FA) trong Trang cá nhân trước khi khóa/mở đăng ký tài khoản.', 'warning');
+      return;
+    }
+    const totpCode = await open2FAModal();
+    if (!totpCode) { checkbox.checked = prevState; return; }
+
     checkbox.disabled = true;
     try {
-      const res = await fetch('/admin/toggle-registration-lock', { method: 'POST' });
+      const res = await fetch('/admin/toggle-registration-lock', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ totpCode })
+      });
       const result = await res.json();
       if (result.success) {
         checkbox.checked = result.locked;
@@ -858,17 +948,32 @@
     }
   }
 
+  function openVtpModal() {
+    document.getElementById('vtp-modal').style.display = 'flex';
+  }
+  function closeVtpModal() {
+    document.getElementById('vtp-modal').style.display = 'none';
+  }
+
   async function connectVTPAdmin() {
     const user = document.getElementById('vtp_user').value;
     const pass = document.getElementById('vtp_pass').value;
     if (!user || !pass) return showNotice("Cảnh báo", "Nhập đủ tài khoản admin Viettel Post!", "warning");
+
+    if (!ADMIN_2FA_ENABLED) {
+      showNotice('Cần bật 2FA', 'Bạn cần bật Xác thực 2 lớp (2FA) trong Trang cá nhân trước khi cập nhật token Viettel Post.', 'warning');
+      return;
+    }
+    const totpCode = await open2FAModal();
+    if (!totpCode) return;
+
     try {
       const res = await fetch('/admin/update-vtp-system', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vtp_user: user, vtp_pass: pass })
+        body: JSON.stringify({ vtp_user: user, vtp_pass: pass, totpCode })
       });
       const result = await res.json();
-      if (result.success) { alert("Đã cập nhật cấu hình Viettel Post!"); location.reload(); }
+      if (result.success) { closeVtpModal(); alert("Đã cập nhật cấu hình Viettel Post!"); location.reload(); }
       else alert(result.message);
     } catch (e) { alert("Lỗi kết nối server"); }
   }
@@ -878,10 +983,18 @@
     const stepPrice = document.querySelector(`.step-price[data-id="${userId}"]`).value;
     const baseWeight = document.querySelector(`.base-weight[data-id="${userId}"]`).value;
     if (!basePrice || !stepPrice || !baseWeight) { showNotice("Cảnh báo", "Nhập đầy đủ giá cước, kg!", "warning"); return; }
+
+    if (!ADMIN_2FA_ENABLED) {
+      showNotice('Cần bật 2FA', 'Bạn cần bật Xác thực 2 lớp (2FA) trong Trang cá nhân trước khi sửa thông tin người dùng.', 'warning');
+      return;
+    }
+    const totpCode = await open2FAModal();
+    if (!totpCode) return;
+
     try {
       const response = await fetch('/admin/update-user-price', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, basePrice, stepPrice, baseWeight })
+        body: JSON.stringify({ userId, basePrice, stepPrice, baseWeight, totpCode })
       });
       const result = await response.json();
       if (result.success) {
@@ -1067,6 +1180,15 @@
     for (const [k, label] of Object.entries(required)) {
       if (!data[k]?.trim()) { alert(`Nhập: ${label}`); form.querySelector(`[name="${k}"]`)?.focus(); return; }
     }
+
+    if (!ADMIN_2FA_ENABLED) {
+      showNotice('Cần bật 2FA', 'Bạn cần bật Xác thực 2 lớp (2FA) trong Trang cá nhân trước khi sửa thông tin người dùng.', 'warning');
+      return;
+    }
+    const totpCode = await open2FAModal();
+    if (!totpCode) return;
+    data.totpCode = totpCode;
+
     try {
       const res = await fetch('/api/admin/update-user-jt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
       const result = await res.json();
