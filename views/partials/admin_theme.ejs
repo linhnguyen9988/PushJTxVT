@@ -132,4 +132,21 @@
   /* ── Thanh cuộn mảnh, đồng bộ style admin ── */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-thumb { background: var(--ink-300); border-radius: 4px; }
+  /* ── Ngoại lệ: giữ nguyên màu xanh dương cũ cho 1 số nút/badge theo yêu cầu ── */
+  .btn-blue-original {
+    background-color: #2f5ee6 !important;
+    border-color: #2f5ee6 !important;
+    color: #fff !important;
+    font-weight: 400;
+    box-shadow: 0 2px 6px rgba(47, 94, 230, .25) !important;
+  }
+  .btn-blue-original:hover, .btn-blue-original:focus {
+    background-color: #244cc7 !important;
+    border-color: #244cc7 !important;
+    color: #fff !important;
+  }
+  .badge-original-blue {
+    --bs-primary: #2f5ee6;
+    --bs-primary-rgb: 47, 94, 230;
+  }
 </style>

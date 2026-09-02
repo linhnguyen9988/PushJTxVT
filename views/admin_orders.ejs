@@ -5,8 +5,8 @@ var statusMap = {
     'pending':          { text: 'Chờ lấy hàng', class: 'bg-warning-subtle text-warning-emphasis border border-warning' },
     'cancel':           { text: 'Đã hủy đơn',   class: 'bg-secondary-subtle text-secondary border border-secondary' },
     'picked_up':        { text: 'Đã lấy hàng',  class: 'bg-info-subtle text-info-emphasis border border-info' },
-    'delivering':       { text: 'Đang vận chuyển', class: 'bg-primary-subtle text-primary border border-primary' },
-    'out_for_delivery': { text: 'Đang giao hàng', class: 'bg-primary border text-white' },
+    'delivering':       { text: 'Đang vận chuyển', class: 'bg-primary-subtle text-primary border border-primary badge-original-blue' },
+    'out_for_delivery': { text: 'Đang giao hàng', class: 'bg-primary border text-white badge-original-blue' },
     'completed':        { text: 'Thành công',    class: 'bg-success-subtle text-success border border-success' },
     'returning':        { text: 'Đang hoàn', class: 'bg-danger-subtle text-danger border border-danger' },
     'returned':         { text: 'Đã hoàn hàng',  class: 'bg-dark-subtle text-dark border border-dark' },
@@ -654,7 +654,7 @@ function getBadge(status) {
                 </div>
                 <div class="p-3 bg-light d-flex justify-content-end gap-2">
                     <button type="button" class="btn btn-sm btn-secondary" onclick="hidePopup()">Đóng</button>
-                    <button type="button" onclick="submitOrder()" id="btnSubmit" class="btn btn-sm btn-primary"><i class="fa-solid fa-truck-fast"></i> Lên Đơn</button>
+                    <button type="button" onclick="submitOrder()" id="btnSubmit" class="btn btn-sm btn-primary btn-blue-original"><i class="fa-solid fa-truck-fast"></i> Lên Đơn</button>
                 </div>
             </div>
         </div>
@@ -2181,7 +2181,7 @@ let currentOrderData = null;
             })();
         </script>
         <div class="d-md-none position-fixed" style="bottom: 80px; right: 20px; z-index: 1000;">
-            <button class="btn btn-primary rounded-circle shadow-lg" onclick="toggleFilterDrawer()"
+            <button class="btn btn-primary btn-blue-original rounded-circle shadow-lg" onclick="toggleFilterDrawer()"
                 style="width: 50px; height: 50px;">
                 <i class="fas fa-filter"></i>
             </button>
@@ -2271,7 +2271,7 @@ let currentOrderData = null;
                     </div>
 
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary py-2">Áp dụng lọc</button>
+                        <button type="submit" class="btn btn-primary btn-blue-original py-2">Áp dụng lọc</button>
                         <a href="/admin/orders" class="btn btn-light border py-2">Thiết lập lại</a>
                     </div>
                 </form>
