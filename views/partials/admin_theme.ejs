@@ -1,0 +1,135 @@
+<style>
+  /* ============================================================
+     Theme dùng chung — đồng bộ giao diện với trang Admin Dashboard
+     (áp dụng cho: Vận đơn, Khách hàng, Trang cá nhân)
+     ============================================================ */
+  :root {
+    --accent: #f0a500;
+    --accent2: #ff5e5b;
+    --accent3: #00d4aa;
+    --surface2: var(--ink-100);
+    --border: var(--surface-border);
+    --text: var(--ink-900);
+    --muted: var(--ink-500);
+    --radius: 14px;
+
+    /* Ghi đè tông màu brand (xanh dương) sang vàng cam của Admin Dashboard.
+       Toàn bộ nút primary, link, tab active, avatar... dùng token này
+       nên sẽ tự động đổi màu theo mà không cần sửa từng class riêng lẻ. */
+    --brand-50:  #fff6e0;
+    --brand-100: #ffecc0;
+    --brand-200: #ffdd8a;
+    --brand-500: var(--accent);
+    --brand-600: #cf8b00;
+    --brand-700: #a86f00;
+    --bs-primary: var(--accent);
+    --bs-primary-rgb: 240, 165, 0;
+  }
+
+  /* ── Tiêu đề trang ── */
+  .page-title-adm {
+    font-family: 'Arimo', sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .page-title-adm .ic { color: var(--accent); }
+
+  /* ── Thẻ (card) ── */
+  .card {
+    background: var(--surface-card);
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius) !important;
+  }
+
+  /* ── Nút chính (primary) — chữ đen trên nền vàng cam như .btn-accent bên Admin ── */
+  .btn-primary {
+    color: #1a1300 !important;
+    font-weight: 700;
+    box-shadow: 0 2px 6px rgba(240, 165, 0, .3) !important;
+  }
+  .btn-primary:hover, .btn-primary:focus {
+    color: #1a1300 !important;
+    opacity: .88;
+  }
+  .btn-outline-primary:hover {
+    color: #1a1300 !important;
+  }
+  .btn-check:checked + .btn-outline-primary,
+  .btn-check:active + .btn-outline-primary {
+    color: #1a1300 !important;
+  }
+
+  /* ── Bảng dữ liệu ── */
+  .table thead th {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+  }
+  .table tbody tr {
+    transition: background .15s;
+  }
+  .table.table-hover tbody tr:hover {
+    background: var(--surface2);
+  }
+  .table td, .table th { border-color: var(--border); }
+
+  /* ── Ô thống kê nhanh (stat chip) ── */
+  .stat-chip-mini {
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-chip-mini::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-chip-mini.c-yellow::before { background: var(--accent); }
+  .stat-chip-mini.c-red::before { background: var(--accent2); }
+  .stat-chip-mini.c-green::before { background: var(--accent3); }
+  .stat-chip-mini .chip-label {
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+  .stat-chip-mini .chip-val {
+    font-family: 'Arimo', sans-serif;
+    font-weight: 800;
+    font-size: 0.85rem;
+    margin-top: 2px;
+  }
+
+  /* ── Badge trạng thái bo tròn ── */
+  .badge.rounded-pill {
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── Input / Select ── */
+  .form-control, .form-select {
+    border-radius: 8px !important;
+  }
+  .form-control:focus, .form-select:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(240, 165, 0, .12) !important;
+  }
+
+  /* ── Popup / Modal dùng chung (header tối vẫn giữ, chỉ bo góc lớn hơn) ── */
+  .custom-popup, .custom-popup-content {
+    border-radius: var(--radius) !important;
+  }
+
+  /* ── Thanh cuộn mảnh, đồng bộ style admin ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: var(--ink-300); border-radius: 4px; }
+</style>

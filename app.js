@@ -1332,6 +1332,7 @@ function applyAddressFixes(sWard, sDist) {
     if (sDist === 'đạ huoai' && sWard === 'quảng ngãi') sDist = 'cát tiên';
     if (sDist === 'đạ huoai' && sWard === 'đức phổ') sDist = 'cát tiên';
     if (sDist === 'đạ huoai' && sWard === 'phước cát') sDist = 'cát tiên';
+    if (sDist === 'đạ huoai' && sWard === 'tiên hoàng') sDist = 'cát tiên';
     if (sDist === 'đạ huoai' && sWard === 'cát tiên') sDist = 'cát tiên';
     if (sDist === 'phú lộc' && sWard === 'hương lộc') sDist = 'nam đông';
     if (sDist === 'ninh giang' && sWard === 'đức phúc') sWard = 'vạn phúc';
@@ -1418,7 +1419,10 @@ function cleanSearchTerm(str) {
         .replace("ba bể (chợ rã)", 'chợ rã')
         .replace("đambri", 'Đạm Bri')
         .replace("ð", 'đ')
+        .replace("eacharang", 'Ea Chà Rang')
         .replace("cư niê", 'cư ni')
+        .replace("b'lá", 'blá')
+        .replace("bun tở", 'bum tở')
         .replace("h'leo", 'hleo')
         .replace("eabar", 'ea bar')
         .replace("yên  phú", 'yên phú')
@@ -1429,6 +1433,7 @@ function cleanSearchTerm(str) {
         .replace("h'đing", 'hđinh')
         .replace("đăk ýa", 'Ðắk Ya')
         .replace("iale", 'ia le')
+        .replace("chu chinh", 'chu trinh')
         .replace("đắk rtih", 'Đắk RTíh')
         .replace("sơ lang", 'sơn lang')
         .replace("đạ k'năng", 'đạ knăng')

@@ -1,4 +1,5 @@
 <%- include('partials/header') %>
+<%- include('partials/admin_theme') %>
     <% 
 var statusMap = {
     'pending':          { text: 'Chờ lấy hàng', class: 'bg-warning-subtle text-warning-emphasis border border-warning' },
@@ -19,7 +20,7 @@ function getBadge(status) {
 %>
         <div class="container-fluid px-md-4">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="fw-bold mb-0">📦 Đơn hàng</h4>
+                <h4 class="page-title-adm mb-0"><span class="ic">📦</span> Đơn hàng</h4>
                 <div class="d-flex gap-2 align-items-center">
                     <button type="button" class="btn btn-outline-primary btn-sm px-3 shadow-sm"
                         onclick="printSelectedOrders()">
@@ -169,21 +170,21 @@ function getBadge(status) {
 
                     <div class="row g-2 text-center">
                         <div class="col-4">
-                            <div class="p-2 border rounded bg-light">
-                                <div class="small text-muted text-uppercase" style="font-size: 0.6rem;">Tổng COD</div>
-                                <div class="fw-bold text-primary" id="sum_cod" style="font-size: 0.75rem;">0đ</div>
+                            <div class="stat-chip-mini c-yellow">
+                                <div class="chip-label">Tổng COD</div>
+                                <div class="chip-val" id="sum_cod">0đ</div>
                             </div>
                         </div>
                         <div class="col-4">
-                            <div class="p-2 border rounded bg-light">
-                                <div class="small text-muted text-uppercase" style="font-size: 0.66rem;">Tổng Cước</div>
-                                <div class="fw-bold text-danger" id="sum_fee" style="font-size: 0.75rem;">0đ</div>
+                            <div class="stat-chip-mini c-red">
+                                <div class="chip-label">Tổng Cước</div>
+                                <div class="chip-val" id="sum_fee">0đ</div>
                             </div>
                         </div>
                         <div class="col-4">
-                            <div class="p-2 border rounded bg-light">
-                                <div class="small text-muted text-uppercase" style="font-size: 0.6rem;">Thực nhận</div>
-                                <div class="fw-bold text-success" id="sum_received" style="font-size: 0.75rem;">0đ</div>
+                            <div class="stat-chip-mini c-green">
+                                <div class="chip-label">Thực nhận</div>
+                                <div class="chip-val" id="sum_received">0đ</div>
                             </div>
                         </div>
                     </div>
