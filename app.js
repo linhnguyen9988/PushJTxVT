@@ -52,7 +52,7 @@ const io = new Server(httpsServer, {
         origin: "*",
         methods: ["GET", "POST"]
     },
-    maxHttpBufferSize: 1e7 // 10MB — đủ cho 1 batch 10 tem (~800KB thực tế)
+    maxHttpBufferSize: 1e7 
 });
 
 io.on("connection", (socket) => {
@@ -73,9 +73,6 @@ io.on("connection", (socket) => {
 
                     if (match) {
                         const userRoom = `USER_ROOM_${user.id}`;
-
-                        // Kick tất cả socket cũ ra khỏi room trước khi join
-                        // Tránh trường hợp App C# reconnect → 2 socket cùng room → in 2 lần
                         const existingRoom = io.sockets.adapter.rooms.get(userRoom);
                         if (existingRoom) {
                             for (const oldSocketId of existingRoom) {
@@ -102,7 +99,6 @@ io.on("connection", (socket) => {
     });
 
     socket.on("logout-printer", ({ username }) => {
-        // App C# gọi khi đổi tài khoản — rời toàn bộ room USER_ROOM_*
         for (const room of socket.rooms) {
             if (room.startsWith("USER_ROOM_")) {
                 socket.leave(room);
@@ -113,7 +109,6 @@ io.on("connection", (socket) => {
 
     socket.on("disconnect", (reason) => {
         console.log(`[Socket] Ngắt kết nối: ${socket.id} — lý do: ${reason}`);
-        // Log room nào còn client sau khi disconnect để debug
         for (const room of socket.rooms) {
             if (room.startsWith("USER_ROOM_")) {
                 const size = io.sockets.adapter.rooms.get(room)?.size ?? 0;
@@ -148,7 +143,6 @@ db.getConnection((err, connection) => {
     }
 });
 
-// ── Cài đặt hệ thống (settings toàn cục, ví dụ: khóa đăng ký) ──
 db.query(`
     CREATE TABLE IF NOT EXISTS app_settings (
         id INT PRIMARY KEY DEFAULT 1,
@@ -166,10 +160,8 @@ function getRegistrationLocked(cb) {
     });
 }
 
-// ── 2FA (TOTP - Google/Microsoft Authenticator...) ──
 const APP_2FA_ISSUER = 'TV Ship';
 
-// Thêm cột lưu bí mật 2FA vào bảng users nếu chưa có (an toàn khi chạy lại nhiều lần)
 db.query(`ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL`, (err) => {
     if (err && err.code !== 'ER_DUP_FIELDNAME') console.error('Lỗi thêm cột totp_secret:', err.message);
 });
@@ -180,7 +172,6 @@ db.query(`ALTER TABLE users ADD COLUMN totp_recovery_codes TEXT NULL`, (err) => 
     if (err && err.code !== 'ER_DUP_FIELDNAME') console.error('Lỗi thêm cột totp_recovery_codes:', err.message);
 });
 
-// Sinh N mã khôi phục dạng XXXX-XXXX (không dùng ký tự dễ nhầm 0/O/1/I)
 function generateRecoveryCodes(count = 8) {
     const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const codes = [];
@@ -192,7 +183,6 @@ function generateRecoveryCodes(count = 8) {
     return codes;
 }
 
-// Băm danh sách mã khôi phục (plaintext) để lưu DB
 async function hashRecoveryCodes(plainCodes) {
     const hashed = [];
     for (const c of plainCodes) hashed.push(await bcrypt.hash(c, 10));
@@ -203,7 +193,6 @@ function normalizeRecoveryInput(code) {
     return String(code || '').trim().toUpperCase().replace(/\s+/g, '');
 }
 
-// Kiểm tra + "tiêu" 1 mã khôi phục (dùng 1 lần rồi mất hiệu lực)
 async function verifyAndConsumeRecoveryCode(username, inputCode) {
     if (!inputCode) return false;
     const normalized = normalizeRecoveryInput(inputCode);
@@ -219,7 +208,7 @@ async function verifyAndConsumeRecoveryCode(username, inputCode) {
     for (let i = 0; i < hashedCodes.length; i++) {
         const match = await bcrypt.compare(normalized, hashedCodes[i]);
         if (match) {
-            hashedCodes.splice(i, 1); // dùng 1 lần rồi xóa khỏi danh sách
+            hashedCodes.splice(i, 1); 
             await db.promise().query('UPDATE users SET totp_recovery_codes = ? WHERE username = ?', [JSON.stringify(hashedCodes), username]);
             return true;
         }
@@ -227,7 +216,6 @@ async function verifyAndConsumeRecoveryCode(username, inputCode) {
     return false;
 }
 
-// Xác thực bước 2FA: chấp nhận mã 6 số từ Authenticator HOẶC 1 mã khôi phục (khi mất thiết bị)
 async function verify2FACode(username, secret, inputCode) {
     if (!inputCode) return false;
     const totpOk = await verifyTotpToken(secret, inputCode);
@@ -235,7 +223,6 @@ async function verify2FACode(username, secret, inputCode) {
     return await verifyAndConsumeRecoveryCode(username, inputCode);
 }
 
-// Kiểm tra 1 mã OTP 6 số với secret cho trước (cho phép lệch 1 bước ~30s để tránh lệch giờ thiết bị)
 async function verifyTotpToken(secret, token) {
     if (!secret || !token) return false;
     try {
@@ -246,10 +233,6 @@ async function verifyTotpToken(secret, token) {
     }
 }
 
-// Middleware: bắt buộc nhập đúng mã 2FA của chính ADMIN đang thao tác trước khi
-// cho phép sửa thông tin user (users, KHÔNG phải customers).
-// - Nếu admin chưa bật 2FA -> chặn, yêu cầu vào Trang cá nhân bật 2FA trước.
-// - Nếu người thao tác không phải admin -> bỏ qua (để logic phân quyền gốc của route tự xử lý).
 function require2FA(req, res, next) {
     if (req.app_role !== 'admin') return next();
 
@@ -288,7 +271,6 @@ function require2FA(req, res, next) {
 app.set('view engine', 'ejs');
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
-// Guard: đảm bảo req.body không bao giờ undefined với POST/PUT/PATCH
 app.use((req, res, next) => { if (['POST', 'PUT', 'PATCH'].includes(req.method) && !req.body) req.body = {}; next(); });
 app.use(express.static('public'));
 app.use(cookieParser());
@@ -464,7 +446,6 @@ app.post('/api/login', (req, res) => {
 
             const match = await bcrypt.compare(password, userRecord.password);
             if (match) {
-                // Tài khoản đã tự bật 2FA -> chưa cấp JWT ngay, yêu cầu xác thực mã 2FA trước
                 if (userRecord.totp_enabled && userRecord.totp_secret) {
                     const preToken = jwt.sign(
                         { userId: userRecord.id, purpose: '2fa-pending' },
@@ -504,7 +485,6 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// Bước 2 của đăng nhập App Mobile khi tài khoản đã bật 2FA
 app.post('/api/login/2fa-verify', async (req, res) => {
     const { tempToken, code } = req.body;
     if (!tempToken || !code) {
@@ -580,7 +560,6 @@ app.post('/login', (req, res) => {
             }
             const match = await bcrypt.compare(password, userRecord.password);
             if (match) {
-                // Tài khoản đã tự bật 2FA -> chuyển sang bước nhập mã trước khi cấp phiên đăng nhập
                 if (userRecord.totp_enabled && userRecord.totp_secret) {
                     req.session.pending2FA = {
                         userId: userRecord.id,
@@ -597,7 +576,6 @@ app.post('/login', (req, res) => {
                 };
                 const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
-                // Lưu JWT vào cookie — hạn 30 ngày
                 res.cookie('jwt_token', token, {
                     httpOnly: true,
                     secure: true,
@@ -614,7 +592,6 @@ app.post('/login', (req, res) => {
     });
 });
 
-// ── Bước 2: nhập mã 2FA khi đăng nhập web (chỉ áp dụng cho tài khoản đã tự bật 2FA) ──
 app.get('/login/2fa', (req, res) => {
     if (!req.session.pending2FA) return res.redirect('/login');
     res.render('login_2fa', { username: req.session.pending2FA.username });
@@ -700,26 +677,37 @@ app.post('/jtex', function (req, res) {
         if (currentTypeName == '中心到件') currentTypeName = 'Hàng đến kho TTKT';
         else if (currentTypeName == '取件失败') currentTypeName = 'Nhận hàng không thành công';
 
-        let scanbyphone = details.scanByContact;
+        let scanbyphone = details.staffContact || details.scanByContact || null;
         if (scanbyphone) scanbyphone = scanbyphone.replace("+84", "0");
+
+        let picsArr = [];
+        if (Array.isArray(details.pictureUrl)) picsArr = details.pictureUrl;
+        else if (details.pictureUrl) picsArr = [details.pictureUrl];
+        else if (Array.isArray(details.sigPicUrl)) picsArr = details.sigPicUrl;
+        else if (details.sigPicUrl) picsArr = [details.sigPicUrl];
+        picsArr = picsArr.filter(u => typeof u === 'string' && u.trim() !== '');
+        const sigpicValue = picsArr.length > 0 ? JSON.stringify(picsArr) : null;
 
         const waybillParams = [
             billCode,
             details.scanByCode || null,
-            scanbyphone || null,
-            details.scanByName || null,
+            scanbyphone,
+            details.staffName || details.scanByName || null,
             details.scanNetworkArea || null,
             details.scanNetworkCity || null,
             details.scanNetworkProvince || null,
             details.scanNetworkName || null,
             details.scanTime,
             currentTypeName,
-            details.abnormalPieceName || null
+            details.reason || details.abnormalPieceName || null,
+            sigpicValue,
         ];
-
+        if (sigpicValue) {
+            console.log("[Webhook J&T] Nhận " + picsArr.length + " ảnh cho billCode " + billCode);
+        }
         const sqlInsertWaybill = `INSERT INTO jtwaybill
-            (billcode, scanbycode, scanbycontact, scanbyname, scanward, scancity, scanprov, scanpost, scantime, scantypename, issuename)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
+            (billcode, scanbycode, scanbycontact, scanbyname, scanward, scancity, scanprov, scanpost, scantime, scantypename, issuename, sigpic)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
 
         db.query(sqlInsertWaybill, waybillParams, (err) => {
             if (err) console.error('[Webhook J&T] Lỗi INSERT jtwaybill:', err);
@@ -791,7 +779,7 @@ app.post('/jtex', function (req, res) {
                 break;
 
             default:
-                //console.log(details.scanTypeName);
+            //console.log(details.scanTypeName);
         }
 
         if (updateSql) {
@@ -816,7 +804,7 @@ app.post('/jtex', function (req, res) {
     }
 });
 
-app.use(isAuth);//Chỉ có login và register nằm trước cái này
+app.use(isAuth);
 
 app.post('/admin/toggle-lock/:id', isAdmin, require2FA, (req, res) => {
     db.query('UPDATE users SET is_locked = NOT is_locked WHERE id = ?', [req.params.id], (err) => {
@@ -825,7 +813,6 @@ app.post('/admin/toggle-lock/:id', isAdmin, require2FA, (req, res) => {
     });
 });
 
-// Khóa/mở đăng ký tài khoản mới - chỉ admin mới có quyền (đã có isAdmin chặn manager/user)
 app.post('/admin/toggle-registration-lock', isAdmin, require2FA, (req, res) => {
     db.query('UPDATE app_settings SET registration_locked = NOT registration_locked WHERE id = 1', (err) => {
         if (err) {
@@ -871,7 +858,6 @@ app.get('/profile', async (req, res) => {
             db.promise().query(sqlProducts, [userData.id])
         ]);
 
-        // Đơn hàng hôm nay (giống mục trong Admin Panel) - chỉ lấy cho manager/admin
         let todayStats = [];
         if (userData.role === 'manager' || userData.role === 'admin') {
             const [todayStatsRows] = await db.promise().query(`
@@ -944,7 +930,6 @@ app.post('/profile/change-password', isAuth, async (req, res) => {
             return res.redirect('/profile');
         }
 
-        // Tài khoản đã bật 2FA -> bắt buộc nhập đúng mã 2FA mới cho đổi mật khẩu
         if (results[0].totp_enabled) {
             const ok = await verify2FACode(req.app_user, results[0].totp_secret, totpCode);
             if (!ok) {
@@ -978,7 +963,6 @@ app.post('/api/change-password', isAuth, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Mật khẩu cũ không đúng.' });
         }
 
-        // Tài khoản đã bật 2FA -> bắt buộc nhập đúng mã 2FA mới cho đổi mật khẩu
         if (rows[0].totp_enabled) {
             const ok = await verify2FACode(username, rows[0].totp_secret, totpCode);
             if (!ok) {
@@ -995,7 +979,6 @@ app.post('/api/change-password', isAuth, async (req, res) => {
     }
 });
 
-// ── Tự cài đặt 2FA (TOTP) trong Trang cá nhân ──
 app.post('/api/2fa/setup', isAuth, async (req, res) => {
     try {
         const secret = await otplib.generateSecret();
@@ -1020,7 +1003,6 @@ app.post('/api/2fa/enable', isAuth, async (req, res) => {
         return res.status(400).json({ success: false, message: 'Phiên thiết lập 2FA đã hết hạn, vui lòng bấm Bật 2FA lại.' });
     }
 
-    // Bước xác nhận thiết lập ban đầu: chỉ chấp nhận mã TOTP thật, chưa có mã khôi phục nào được tạo
     const ok = await verifyTotpToken(secret, code);
     if (!ok) {
         return res.status(400).json({ success: false, message: 'Mã xác thực không đúng. Vui lòng kiểm tra lại app Authenticator.' });
@@ -1055,7 +1037,6 @@ app.post('/api/2fa/disable', isAuth, async (req, res) => {
             return res.json({ success: true, message: '2FA đã tắt sẵn.' });
         }
 
-        // Cho phép tắt bằng mã TOTP hoặc bằng mã khôi phục (nếu mất thiết bị Authenticator)
         const ok = await verify2FACode(req.app_user, u.totp_secret, code);
         if (!ok) {
             return res.status(400).json({ success: false, message: 'Mã không đúng. Nhập mã 6 số từ app Authenticator hoặc 1 mã khôi phục còn hiệu lực.' });
@@ -1070,7 +1051,6 @@ app.post('/api/2fa/disable', isAuth, async (req, res) => {
     }
 });
 
-// Tạo lại bộ mã khôi phục mới (các mã cũ sẽ mất hiệu lực) — cần xác thực bằng mã TOTP hoặc 1 mã khôi phục còn lại
 app.post('/api/2fa/recovery-codes/regenerate', isAuth, async (req, res) => {
     const { code } = req.body;
     try {
@@ -1321,7 +1301,7 @@ function applyAddressFixes(sWard, sDist) {
     if (sDist === 'xuân trường' && sWard === 'xuân phúc') sWard = 'xuân hòa';
     if (sDist === 'quỳ châu' && sWard === 'quỳ châu') sWard = 'tân lạc';
     if (sDist === 'đạ huoai' && sWard === 'quốc oai') sDist = 'đạ tẻh';
-    if (sDist === 'đạ huoai' && sWard === 'quảng trị') {sDist = 'đạ tẻh'; sWard = 'Triệu Hải'}
+    if (sDist === 'đạ huoai' && sWard === 'quảng trị') { sDist = 'đạ tẻh'; sWard = 'Triệu Hải' }
     if (sDist === 'gia lộc' && sWard === 'gia tiến') sWard = 'Gia Lương';
     if (sDist === 'ý yên' && sWard === 'tân minh') sWard = 'yên minh';
     if (sDist === 'đạ huoai' && sWard === 'mỹ đức') sDist = 'đạ tẻh';
@@ -1361,7 +1341,7 @@ function applyAddressFixes(sWard, sDist) {
     if (sDist === 'phú lộc' && sWard === 'thượng nhật') sDist = 'nam đông';
     if (sDist === 'cẩm phả' && sWard === 'hải hòa') sWard = 'cẩm hải';
     if (sDist === 'phú lộc' && sWard === 'hương phú') sDist = 'nam đông';
-    if (sDist === 'nam định' && sWard === 'mỹ lộc') {sDist = 'mỹ lộc'; sWard = 'mỹ tiến';}
+    if (sDist === 'nam định' && sWard === 'mỹ lộc') { sDist = 'mỹ lộc'; sWard = 'mỹ tiến'; }
     if (sDist === 'xuân trường' && sWard === 'xuân giang') sWard = 'xuân đài';
 
     if (sDist.includes('chư') && sDist.includes('pưh')) sDist = 'chư pưh';
@@ -1384,7 +1364,7 @@ function normalizeSQL(field) {
         ['uý', 'úy'], ['uỳ', 'ùy'], ['uỷ', 'ủy'], ['uỹ', 'ũy'], ['uỵ', 'ụy'],
         ['thuý', 'thúy'], ['thuỷ', 'thủy'], ['thuỵ', 'thụy'],
         ['mĩ', 'mỹ'], ['kĩ', 'kỹ'], ['kì', 'kỳ'], ['kí', 'ký'], ['vĩ', 'vỹ'], ['hĩ', 'hỹ'], ['ngĩ', 'nghĩ'],
-        ['quí', 'quý'], ['quì', 'quỳ'], ['quỉ', 'quỷ'], ['quĩ', 'quỹ'], ['quị', 'quỵ'],['qui', 'quy'],
+        ['quí', 'quý'], ['quì', 'quỳ'], ['quỉ', 'quỷ'], ['quĩ', 'quỹ'], ['quị', 'quỵ'], ['qui', 'quy'],
         ['mí', 'mỹ'], ['hì', 'hỳ'], ['tí', 'tý'],
         ['sĩ', 'sỹ'], ['đông xá', 'Ðông Xá'], ['vân đồn', 'Vân Đồn'], ['10', 'mười']
     ];
@@ -1424,6 +1404,7 @@ function cleanSearchTerm(str) {
         .replace("b'lá", 'blá')
         .replace("bun tở", 'bum tở')
         .replace("h'leo", 'hleo')
+        .replace("vình an", 'vĩnh an')
         .replace("eabar", 'ea bar')
         .replace("yên  phú", 'yên phú')
         .replace("đăk jrăng", 'Ðắk Drjăng')
@@ -1747,10 +1728,8 @@ app.post('/customers/add', isAuth, async (req, res) => {
     }
 });
 
-// Load địa chỉ 3 cấp một lần khi khởi động
 let addressData = [];
 
-// Normalize tiếng Việt: bỏ dấu, lowercase, đ→d
 function normalizeAddr(str) {
     return str.toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -1767,7 +1746,7 @@ try {
             district: item.district,
             province: item.province,
             full: full,
-            norm: normalizeAddr(full)  // Pre-compute normalized string
+            norm: normalizeAddr(full)
         };
     });
     console.log(`[Address] Đã load ${addressData.length} địa chỉ`);
@@ -1779,26 +1758,22 @@ app.get('/api/address-suggest', (req, res) => {
     const q = normalizeAddr((req.query.q || '').trim());
     if (!q || q.length < 2) return res.json([]);
 
-    // Tách keywords: bỏ dấu câu, bỏ trùng lặp, bỏ từ quá ngắn (1 ký tự)
     const rawKeywords = q.split(/[\s,;.\-\/\\]+/).filter(k => k.length > 1);
-    const keywords = [...new Set(rawKeywords)]; // deduplicate
+    const keywords = [...new Set(rawKeywords)];
 
     if (keywords.length === 0) return res.json([]);
 
     const scored = addressData
         .map(item => {
-            const text = item.norm; // "xa ninh hai, huyen ninh giang, hai duong"
-            const wardNorm = normalizeAddr(item.ward); // "xa ninh hai"
+            const text = item.norm;
+            const wardNorm = normalizeAddr(item.ward);
 
-            // Đếm unique keywords khớp trong toàn bộ địa chỉ
             const matches = keywords.filter(k => text.includes(k)).length;
             if (matches === 0) return null;
 
-            // Bonus: keyword khớp chính xác với ward (quan trọng nhất)
             const wardMatches = keywords.filter(k => wardNorm.includes(k)).length;
             const wardBonus = wardMatches * 2;
 
-            // Bonus nhỏ: tất cả keywords đều khớp
             const allMatch = matches === keywords.length ? 1 : 0;
 
             return { item, score: matches + wardBonus + allMatch };
@@ -1896,7 +1871,6 @@ app.post('/api/validate-address', isAuth, async (req, res) => {
         newprov = VALUES(newprov)
 `;
 
-            // Thứ tự mảng phải là: 8 cái cho SELECT + 1 cái cho WHERE username
             await db.promise().query(upsertSql, [
                 phone,        // 1
                 jt.prov,      // 2
@@ -1906,7 +1880,7 @@ app.post('/api/validate-address', isAuth, async (req, res) => {
                 address,      // 6
                 jt.newward,   // 7
                 jt.newprov,   // 8
-                username      // 9 (Đây là dấu hỏi cuối cùng của WHERE username = ?)
+                username      // 9 
             ]);
             return res.json({
                 success: true,
@@ -1950,12 +1924,11 @@ app.get('/admin/orders', isManager, async (req, res) => {
             baseConditions.push(`DATE(${dateField}) >= DATE_SUB(CURDATE(), INTERVAL 2 DAY)`);
         }
 
-        let multiCodes = null; // lưu lại để dùng cho ORDER BY FIELD
+        let multiCodes = null;
 
         if (search) {
             const codes = search.split(',').map(s => s.trim()).filter(Boolean);
             if (codes.length > 1) {
-                // Tìm nhiều mã cùng lúc — dùng IN
                 multiCodes = codes;
                 const placeholders = codes.map(() => '?').join(',');
                 baseConditions.push(`(order_code IN (${placeholders}) OR realjtbillcode IN (${placeholders}))`);
@@ -2001,7 +1974,6 @@ app.get('/admin/orders', isManager, async (req, res) => {
             else { finalConditions.push("status = ?"); finalParams.push(status); }
         }
 
-        // Lọc theo trạng thái in
         if (printed === '1') {
             finalConditions.push("is_printed > 0");
         } else if (printed === '0') {
@@ -2010,7 +1982,6 @@ app.get('/admin/orders', isManager, async (req, res) => {
 
         const finalWhereClause = finalConditions.length > 0 ? " WHERE " + finalConditions.join(" AND ") : "";
 
-        // Nếu tìm nhiều mã: giữ đúng thứ tự quét bằng FIELD()
         let orderByClause;
         let orderSqlParams;
         if (multiCodes && multiCodes.length > 1) {
@@ -2138,7 +2109,6 @@ app.get('/orders', async (req, res) => {
             }
         }
 
-        // Lọc theo trạng thái in
         if (printed === '1') {
             finalConditions.push("is_printed > 0");
         } else if (printed === '0') {
@@ -2147,7 +2117,6 @@ app.get('/orders', async (req, res) => {
 
         const finalWhereClause = " WHERE " + finalConditions.join(" AND ");
 
-        // Giữ đúng thứ tự quét khi tìm nhiều mã
         let finalSql;
         let finalSqlParams;
         if (multiCodes2 && multiCodes2.length > 1) {
@@ -2197,7 +2166,6 @@ app.get('/orders', async (req, res) => {
 
 app.get('/api/orders', isAuth, async (req, res) => {
     try {
-        // Lấy username từ req.app_user (đã được isAuth giải mã) hoặc req.app_user
         const username = req.app_user;
 
         const [userRows] = await db.promise().query(`SELECT id FROM users WHERE username = ?`, [username]);
@@ -2409,12 +2377,12 @@ app.post('/api/orders/create', isAuth, async (req, res) => {
                 'hiệp hoà', 'hiệp hòa', 'trảng dài', 'long bình', 'tân hòa', 'tân hoà',
                 'tam hoà', 'tam hòa', 'thống nhất'
             ];
- 
+
             function normalizeWardNB(s) {
                 return (s || '').toLowerCase().normalize('NFC')
                     .replace(/phường|xã|thị trấn/gi, '').trim();
             }
- 
+
             const wardNormNB = normalizeWardNB(ward);
             const districtNormNB = normalizeWardNB(district);
             const isNBWard = NB_BIEN_HOA_WARDS.some(w => wardNormNB.includes(w) || w.includes(wardNormNB));
@@ -2424,7 +2392,7 @@ app.post('/api/orders/create', isAuth, async (req, res) => {
                 const maNB = 'BH' + Date.now();
                 const sqlNBOrder = `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
                 await db.promise().query(sqlNBOrder, [user.id, maNB, 'NB', customer_name, customer_phone, address, product_name, cod, calculatedFee, weight, 'pending', null, cod, ward, district, province, 'NB-TVSHIP-BH', note]);
-                return res.json({ success: true, message: `✅ Địa chỉ nội thành Biên Hòa — tự động chuyển sang đơn Nội Bộ`, order_code: maNB});
+                return res.json({ success: true, message: `✅ Địa chỉ nội thành Biên Hòa — tự động chuyển sang đơn Nội Bộ`, order_code: maNB });
             }
 
             if (is_new_address) {
@@ -2557,8 +2525,8 @@ app.post('/api/orders/create', isAuth, async (req, res) => {
                     success: true,
                     message: result.message_display, // "Tạo đơn hàng thành công. Mã đơn hàng: ..."
                     order_code: ghn_order_code,
-                    ghn_fee: ghn_fee, // Phí thực tế GHN thu
-                    internal_fee: calculatedFee // Phí hệ thống bạn tính
+                    ghn_fee: ghn_fee,
+                    internal_fee: calculatedFee 
                 });
             } else {
                 return res.json({
@@ -2681,11 +2649,8 @@ app.get('/api/print-order/:id', async (req, res) => {//hiện tại ko xài cái
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// Puppeteer không còn dùng — render PDF qua pdfkit (renderLabelsToPdfBuffer)
-// ──────────────────────────────────────────────────────────────────────────────
 const PDFDocument = require('pdfkit');
 
-// Helper: query đơn hàng theo ids, GIỮ ĐÚNG THỨ TỰ ids từ client
 async function queryOrdersByIds(ids) {
     if (!ids || ids.length === 0) return [];
     const placeholders = ids.map(() => '?').join(',');
@@ -2695,7 +2660,6 @@ async function queryOrdersByIds(ids) {
         GROUP BY id
     `;
     const [rows] = await db.promise().query(sql, [...ids, ...ids]);
-    // Sort bằng JS để đảm bảo đúng thứ tự ids bất kể match qua order_code hay realjtbillcode
     const indexMap = new Map(ids.map((id, i) => [id, i]));
     rows.sort((a, b) => {
         const ia = indexMap.has(a.realjtbillcode) ? indexMap.get(a.realjtbillcode) : (indexMap.get(a.order_code) ?? 9999);
@@ -2705,11 +2669,8 @@ async function queryOrdersByIds(ids) {
     return rows;
 }
 
-// ─── Shared pdfkit renderer — dùng cho cả mobile và socket print ──────────────
-// Không cần Puppeteer, không có queue, không có bottleneck
-// ~10-30ms/batch thay vì ~200ms
-let _logoBuffer = null;   // Buffer — cho pdfkit
-let _logoBase64 = null;   // base64 data URL — cho HTML <img src>
+let _logoBuffer = null;
+let _logoBase64 = null;
 
 function getLogoBuffer() {
     if (_logoBuffer) return _logoBuffer;
@@ -2721,20 +2682,18 @@ function getLogoBuffer() {
     return _logoBuffer;
 }
 
-// Khởi tạo logo cache ngay khi server start
 getLogoBuffer();
 
 async function renderLabelsToPdfBuffer(orders, user, showCod) {
     const size80mm = 226.77;
     const doc = new PDFDocument({ size: [size80mm, size80mm], margins: { top: 0, left: 0, right: 0, bottom: 0 } });
 
-    const fontPath        = 'C:\\PushJTxVT\\public\\Tahoma-Bold.ttf';
+    const fontPath = 'C:\\PushJTxVT\\public\\Tahoma-Bold.ttf';
     const fontRegularPath = 'C:\\PushJTxVT\\public\\Tahoma.ttf';
-    const colWidth        = 216.77 / 3;
-    const firstColumnX    = 5 + colWidth;
-    const logoBuffer      = getLogoBuffer();
+    const colWidth = 216.77 / 3;
+    const firstColumnX = 5 + colWidth;
+    const logoBuffer = getLogoBuffer();
 
-    // Sinh barcode + QR song song cho toàn bộ orders
     const assets = await Promise.all(orders.map(async (order) => {
         const code = order.realjtbillcode || order.order_code;
         const [barcodeBuf, qrBuf] = await Promise.all([
@@ -2751,7 +2710,6 @@ async function renderLabelsToPdfBuffer(orders, user, showCod) {
 
         doc.lineWidth(1.5).rect(5, 5, 216.77, 216.77).stroke();
 
-        // SECTION 1: LOGO & BARCODE
         doc.moveTo(5, 45).lineTo(221.77, 45).stroke();
         doc.moveTo(firstColumnX, 5).lineTo(firstColumnX, 45).stroke();
         if (logoBuffer) {
@@ -2760,7 +2718,6 @@ async function renderLabelsToPdfBuffer(orders, user, showCod) {
         doc.image(barcodeBuf, firstColumnX + 10, 10, { width: 125, height: 20 });
         doc.font(fontPath).fontSize(9).text(code, firstColumnX, 32, { width: 221.77 - firstColumnX, align: 'center' });
 
-        // SECTION 2: SORTLINE
         doc.moveTo(5, 75).lineTo(221.77, 75).stroke();
         const sortY = 50;
         doc.font(fontPath).fontSize(14);
@@ -2770,14 +2727,12 @@ async function renderLabelsToPdfBuffer(orders, user, showCod) {
         doc.moveTo(firstColumnX + colWidth, 45).lineTo(firstColumnX + colWidth, 75).stroke();
         doc.text(sort[2] || '', firstColumnX + colWidth, sortY, { width: colWidth, align: 'center' });
 
-        // SECTION 3: ĐỊA CHỈ
         doc.moveTo(5, 143).lineTo(221.77, 143).stroke();
         doc.font(fontPath).fontSize(9).text(`GỬI: ${user.jt_shopname || 'N/A'} - ${user.jt_sdt || ''}`, 10, 82);
         doc.moveDown(0.4);
         doc.text(`NHẬN: ${order.customer_name} - ${order.customer_phone}`);
         doc.font(fontRegularPath).fontSize(8.5).text(order.customer_address, { width: 205, lineGap: 1 });
 
-        // SECTION 4: NOTE & QR
         const qrX = 160;
         doc.moveTo(qrX, 143).lineTo(qrX, 199).stroke();
         doc.moveTo(5, 199).lineTo(221.77, 199).stroke();
@@ -2787,19 +2742,18 @@ async function renderLabelsToPdfBuffer(orders, user, showCod) {
 
         if (showCod) {
             doc.fillColor('#000000').font(fontPath).fontSize(13)
-               .text(`TIỀN THU HỘ: ${Number(order.price).toLocaleString()} VNĐ`, 5, 205, { align: 'center', width: 216 });
+                .text(`TIỀN THU HỘ: ${Number(order.price).toLocaleString()} VNĐ`, 5, 205, { align: 'center', width: 216 });
         }
     }
 
     return new Promise((resolve, reject) => {
         const chunks = [];
         doc.on('data', c => chunks.push(c));
-        doc.on('end',  () => resolve(Buffer.concat(chunks)));
+        doc.on('end', () => resolve(Buffer.concat(chunks)));
         doc.on('error', reject);
         doc.end();
     });
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 app.post('/api/print-orders-multi-mobile', isAuth, async (req, res) => {
     try {
@@ -2911,15 +2865,12 @@ function formatSortCode(sortString) {
     if (!sortString) return ['', '', ''];
     const parts = sortString.split('-').map(p => p.trim());
 
-    // Nếu có 5 phần (GHN: G-300-W-19-A5) -> G | 300-W-19 | A5
     if (parts.length === 5) {
         return [parts[0], `${parts[1]}-${parts[2]}-${parts[3]}`, parts[4]];
     }
-    // Nếu có 4 phần (GHN: 30-G-26-A6) -> 30 | G-26 | A6
     if (parts.length === 4) {
         return [parts[0], `${parts[1]}-${parts[2]}`, parts[3]];
     }
-    // Nếu có 3 phần (J&T: 620-B25-002) -> Giữ nguyên 1-1-1
     return [parts[0] || '', parts[1] || '', parts[2] || ''];
 }
 
@@ -3211,6 +3162,196 @@ app.get('/api/orders/track-jt/:billCode', async (req, res) => {
     }
 });
 
+function mapJtStatusFromTrace(typeName, desc) {
+    const t = ((typeName || '') + ' ' + (desc || '')).toLowerCase();
+    if (t.includes('hủy')) return 'cancel';
+    if (t.includes('vấn đề')) return 'issue';
+
+    const isReturnFlow = /chuyển\s*hoàn|hoàn\s*trả|hoàn\s*hàng|trả\s*hàng/.test(t);
+
+    if (isReturnFlow) {
+        if (t.includes('chuyển hoàn') || t.includes('đã hoàn')) return 'returned';
+        return 'returning';
+    }
+
+    if (t.includes('ký nhận') || t.includes('hoàn thành') || t.includes('thành công')) return 'completed';
+
+    if (t.includes('phát hàng')) return 'out_for_delivery';
+    if (t.includes('đến')) return 'delivering';
+    if (t.includes('gửi hàng') || t.includes('khứ hồi')) return 'delivering';
+    if (t.includes('nhận hàng') || t.includes('lấy hàng')) return 'picked_up';
+    return null;
+}
+
+app.post('/api/orders/track-jt/:billCode/refresh', async (req, res) => {
+    const { billCode } = req.params;
+    if (!billCode) return res.json({ success: false, message: "Thiếu mã vận đơn" });
+
+    try {
+        const pkey = 'a773fde3cd06466a83232a9f5df4c17a';
+        const apiAccount = '879924327569523968';
+
+        const oderjson = JSON.stringify(
+            {
+                "billCodes": billCode,
+                "txlogisticId": "",
+                "customerCode": "251LC20090",
+                "password": "7518ED172D9CAF92E13AC20B18227359",
+            });
+        const digest = md5ToBase64(oderjson + pkey);
+
+        const params = new URLSearchParams();
+        params.append('bizContent', oderjson);
+
+        const response = await axios.post('https://ylopenapi.jtexpress.vn/webopenplatformapi/api/logistics/trace', params, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'apiAccount': apiAccount,
+                'digest': digest,
+                'timestamp': Date.now().toString()
+            },
+            timeout: 10000
+        });
+
+        const body = response.data;
+
+        if (body.code !== '1' || !Array.isArray(body.data) || body.data.length === 0) {
+            return res.json({ success: false, message: body.msg || "J&T chưa có dữ liệu hành trình cho đơn này!" });
+        }
+
+        const orderTrace = body.data.find(d => d.billCode === billCode) || body.data[0];
+        const details = Array.isArray(orderTrace.details) ? orderTrace.details : [];
+
+        if (details.length === 0) {
+            return res.json({ success: false, message: "Chưa có hành trình chi tiết cho đơn này." });
+        }
+
+        const sortedAsc = [...details].sort((a, b) => new Date(a.scanTime) - new Date(b.scanTime));
+        const newest = sortedAsc[sortedAsc.length - 1];
+
+        const insertSql = `INSERT INTO jtwaybill
+            (billcode, scanbycode, scanbycontact, scanbyname, scanward, scancity, scanprov, scanpost, scantime, scantypename, issuename, sigpic)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
+
+        const conn = await db.promise().getConnection();
+        try {
+            await conn.beginTransaction();
+            await conn.query('DELETE FROM jtwaybill WHERE billcode = ?', [billCode]);
+
+            for (const d of sortedAsc) {
+                let scanbyphone = d.staffContact || null;
+                if (scanbyphone) scanbyphone = scanbyphone.replace('+84', '0');
+
+                let picsArr = [];
+                if (Array.isArray(d.pictureUrl)) picsArr = d.pictureUrl;
+                else if (d.pictureUrl) picsArr = [d.pictureUrl];
+                else if (Array.isArray(d.sigPicUrl)) picsArr = d.sigPicUrl;
+                else if (d.sigPicUrl) picsArr = [d.sigPicUrl];
+                picsArr = picsArr.filter(u => typeof u === 'string' && u.trim() !== '');
+                const sigpicValue = picsArr.length > 0 ? JSON.stringify(picsArr) : null;
+
+                await conn.query(insertSql, [
+                    billCode,
+                    null,
+                    scanbyphone,
+                    d.staffName || null,
+                    d.scanNetworkArea || null,
+                    d.scanNetworkCity || null,
+                    d.scanNetworkProvince || null,
+                    d.scanNetworkName || null,
+                    d.scanTime,
+                    d.scanTypeName || 'Cập nhật hành trình',
+                    d.reason || null,
+                    sigpicValue
+                ]);
+            }
+
+            await conn.commit();
+        } catch (dbErr) {
+            await conn.rollback();
+            throw dbErr;
+        } finally {
+            conn.release();
+        }
+
+        const [trackingData] = await db.promise().execute(
+            `SELECT * FROM jtwaybill WHERE billcode = ? ORDER BY id DESC`,
+            [billCode]
+        );
+
+        let updatedStatus = null;
+        let updatedIssue = null;
+        const mappedStatus = mapJtStatusFromTrace(newest.scanTypeName, newest.desc);
+
+        if (mappedStatus) {
+            let updateSql = null;
+            let updateParams = null;
+
+            switch (mappedStatus) {
+                case 'cancel':
+                    updateSql = "UPDATE orders SET status='cancel' WHERE realjtbillcode=?";
+                    updateParams = [billCode];
+                    break;
+                case 'picked_up':
+                    updateSql = `UPDATE orders SET status='picked_up', pickup_date = COALESCE(pickup_date, NOW())
+                        WHERE realjtbillcode=? AND status NOT IN ('completed','cancel','returned')`;
+                    updateParams = [billCode];
+                    break;
+                case 'delivering':
+                    updateSql = `UPDATE orders SET status='delivering', issue=NULL, pickup_date = COALESCE(pickup_date, NOW())
+                        WHERE realjtbillcode=? AND status NOT IN ('completed','cancel','returned')`;
+                    updateParams = [billCode];
+                    break;
+                case 'out_for_delivery':
+                    updateSql = `UPDATE orders SET status='out_for_delivery', issue=NULL
+                        WHERE realjtbillcode=? AND status NOT IN ('completed','cancel','returned')`;
+                    updateParams = [billCode];
+                    break;
+                case 'completed':
+                    updateSql = "UPDATE orders SET status='completed', issue=NULL WHERE realjtbillcode=?";
+                    updateParams = [billCode];
+                    break;
+                case 'returning':
+                    updateSql = "UPDATE orders SET status='returning', issue=NULL WHERE realjtbillcode=?";
+                    updateParams = [billCode];
+                    break;
+                case 'returned':
+                    updateSql = "UPDATE orders SET status='returned', issue=NULL WHERE realjtbillcode=?";
+                    updateParams = [billCode];
+                    break;
+                case 'issue':
+                    updatedIssue = newest.reason || newest.desc || newest.scanTypeName || 'Kiện vấn đề';
+                    updateSql = "UPDATE orders SET status='issue', issue=? WHERE realjtbillcode=?";
+                    updateParams = [updatedIssue, billCode];
+                    break;
+            }
+
+            if (updateSql) {
+                try {
+                    const [updResult] = await db.promise().query(updateSql, updateParams);
+                    if (updResult.affectedRows > 0) {
+                        updatedStatus = mappedStatus;
+                    }
+                } catch (updErr) {
+                    console.error('[Refresh J&T] Lỗi cập nhật trạng thái đơn:', updErr.message);
+                }
+            }
+        }
+
+        return res.json({
+            success: true,
+            message: "Đã cập nhật hành trình mới nhất!",
+            trackingData,
+            updatedStatus,
+            updatedIssue
+        });
+
+    } catch (err) {
+        console.error("Lỗi Trace J&T:", err.message);
+        return res.status(500).json({ success: false, message: "Lỗi hệ thống khi tra hành trình!" });
+    }
+});
+
 app.post('/admin/update-user-price', isManager, require2FA, async (req, res) => {
     if (req.app_role !== 'admin') {
         return res.status(403).json({ success: false, message: 'Bạn không có quyền thay đổi giá cước!' });
@@ -3300,7 +3441,7 @@ app.post('/api/admin/update-user-jt', isAdmin, require2FA, async (req, res) => {
 app.get('/api/orders/export-excel', isAuth, async (req, res) => {
     try {
         const { startDate, endDate, userId, dateType, status, search, provider } = req.query;
-        const actualRole = req.app_role;  // lấy từ session, không tin query string
+        const actualRole = req.app_role; 
         const actualUser = req.app_user;
         const dateField = dateType === 'pickup' ? 'pickup_date' : 'created_at';
 
@@ -3308,9 +3449,7 @@ app.get('/api/orders/export-excel', isAuth, async (req, res) => {
         let exportParams = [];
 
         if (actualRole === 'admin') {
-            // Admin: không filter user_id, join thêm shopname
         } else {
-            // Shop chỉ được xuất đơn của chính mình
             const [selfRows] = await db.promise().query('SELECT id FROM users WHERE username = ?', [actualUser]);
             const selfId = selfRows[0]?.id;
             conditions.push('o.user_id = ?');
@@ -3388,7 +3527,6 @@ app.get('/api/orders/export-excel', isAuth, async (req, res) => {
         ];
 
         orders.forEach(order => {
-            // Đơn NB lưu mã ở order_code, các đơn khác lưu ở realjtbillcode (hoặc order_code với GHN/Viettel)
             const billCode = order.realjtbillcode || order.order_code || '';
             worksheet.addRow({
                 bill_code: billCode,
@@ -3642,7 +3780,6 @@ app.get('/api/address/wards', async (req, res) => {
     } catch (err) { res.status(500).json([]); }
 });
 
-// Kiểm tra trạng thái kết nối App C# của user
 app.post('/api/printer-status', (req, res) => {
     const { userId } = req.body;
     if (!userId) return res.status(400).json({ success: false, message: 'Thiếu userId' });
@@ -3652,10 +3789,9 @@ app.post('/api/printer-status', (req, res) => {
     res.json({ success: true, online, clients: online ? clients.size : 0 });
 });
 
-// In tem qua socket — tạo PDF buffer rồi đẩy base64 về App C# qua socket
 app.post('/api/print-orders-socket', async (req, res) => {
-    const BATCH_SIZE = 10; // Mỗi lần emit tối đa 10 tem (~800KB base64)
-    const BATCH_DELAY = 300; // ms delay giữa các batch để App C# kịp xử lý
+    const BATCH_SIZE = 10;
+    const BATCH_DELAY = 300;
 
     try {
         const { ids, userId } = req.body;
@@ -3666,7 +3802,6 @@ app.post('/api/print-orders-socket', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Thiếu userId' });
         }
 
-        // Kiểm tra App C# có online không
         const userRoom = `USER_ROOM_${userId}`;
         const clients = io.sockets.adapter.rooms.get(userRoom);
         if (!clients || clients.size === 0) {
@@ -3690,7 +3825,6 @@ app.post('/api/print-orders-socket', async (req, res) => {
 
         const totalBatches = Math.ceil(orders.length / BATCH_SIZE);
 
-        // Trả response ngay, render + emit batch chạy nền
         res.json({
             success: true,
             message: `Đang xử lý ${orders.length} tem (${totalBatches} batch × ${BATCH_SIZE})...`,
@@ -3698,7 +3832,6 @@ app.post('/api/print-orders-socket', async (req, res) => {
             batches: totalBatches
         });
 
-        // Chạy nền: render từng batch bằng pdfkit (không cần Puppeteer)
         (async () => {
             for (let i = 0; i < orders.length; i += BATCH_SIZE) {
                 const batch = orders.slice(i, i + BATCH_SIZE);
@@ -3965,12 +4098,10 @@ app.post('/api/admin/update-order', isManager, async (req, res) => {
 
         let dbStatus = status ? (statusMap[status] || null) : null;
 
-        // Manager không được set completed/returned
         if (!isAdmin && (dbStatus === 'completed' || dbStatus === 'returned')) {
             return res.status(403).json({ success: false, message: 'Chỉ Admin mới được set trạng thái Hoàn thành hoặc Đã hoàn!' });
         }
 
-        // Lấy COD hiện tại nếu là manager
         let finalPrice = price;
         if (!isAdmin) {
             finalPrice = existingOrder.price;

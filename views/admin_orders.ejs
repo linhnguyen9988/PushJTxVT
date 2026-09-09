@@ -236,7 +236,7 @@ function getBadge(status) {
                             onclick="event.stopPropagation(); copyToClipboard('<%= displayCode %>', this)"></i>
                     </div>
 
-                    <span class="badge rounded-pill <%= statusInfo.class %> mt-1"
+                    <span class="badge rounded-pill <%= statusInfo.class %> mt-1" data-billcode="<%= displayCode %>"
                         style="font-size: 0.65rem; padding: 0.4em 0.8em;">
                         <%= statusInfo.text %>
                     </span>
@@ -383,7 +383,7 @@ function getBadge(status) {
                             <i class="far fa-copy copy-ic"
                                onclick="event.stopPropagation(); copyToClipboard('<%= displayCode %>', this)"></i>
                         </div>
-                        <span class="badge rounded-pill <%= statusInfo.class %> mt-1" style="font-size: 0.62rem;">
+                        <span class="badge rounded-pill <%= statusInfo.class %> mt-1" data-billcode="<%= displayCode %>" style="font-size: 0.62rem;">
                             <%= statusInfo.text %>
                         </span>
                         <span class="order-card-shop d-block mt-1" style="width:fit-content;"><%= order.shopname %></span>
@@ -663,7 +663,12 @@ function getBadge(status) {
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="fas fa-route text-primary me-2"></i>Mã đơn: <span id="jtTrackingBillCode"></span></h5>
-                    <button type="button" class="close-modal" onclick="closeJtTrackingPopup()">×</button>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" id="btnRefreshJtTracking" class="btn-refresh-tracking d-none" onclick="refreshJtTracking()" title="Tra hành trình mới nhất từ J&T">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button type="button" class="close-modal" onclick="closeJtTrackingPopup()">×</button>
+                    </div>
                 </div>
                 <div class="modal-body">
                     <div id="jtTrackingTimeline" class="tracking-timeline">
@@ -672,6 +677,16 @@ function getBadge(status) {
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div id="trackingLightbox" class="img-lightbox-overlay" onclick="closeTrackingLightbox()">
+            <button type="button" class="lightbox-close" onclick="closeTrackingLightbox()">&times;</button>
+            <div id="trackingLightboxNav" class="lightbox-nav">
+                <button type="button" class="lightbox-arrow lightbox-prev" onclick="lightboxPrev(event)"><i class="fas fa-chevron-left"></i></button>
+                <button type="button" class="lightbox-arrow lightbox-next" onclick="lightboxNext(event)"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <img id="trackingLightboxImg" src="" onclick="event.stopPropagation()" alt="Ảnh hành trình">
+            <div id="trackingLightboxCounter" class="lightbox-counter"></div>
         </div>
 
         <div id="success-popup-overlay"
@@ -1783,49 +1798,81 @@ async function markOrdersPrinted(orderCodes) {
 
                 return `${hours}:${minutes}:${seconds} - ${day}/${month}/${year}`;
             }
-            async function handleOrderClick(billCode, status, provider) {
-                const popup = document.getElementById('jtTrackingPopup');
-                const container = document.getElementById('jtTrackingTimeline');
-                const billCodeHeader = document.getElementById('jtTrackingBillCode');
+            let currentTrackingBillCode = null;
+            let currentTrackingIsJT = false;
+            let __trackingPhotoSets = [];
 
-                if (billCodeHeader) billCodeHeader.innerText = billCode;
-                popup.style.display = 'flex';
+            // Bản sao (phía client) của statusMap server-side để cập nhật lại badge trạng thái
+            // trên danh sách đơn ngay sau khi refresh hành trình thành công, không cần load lại trang.
+            const clientStatusMap = {
+                'pending':          { text: 'Chờ lấy hàng', class: 'bg-warning-subtle text-warning-emphasis border border-warning' },
+                'cancel':           { text: 'Đã hủy đơn',   class: 'bg-secondary-subtle text-secondary border border-secondary' },
+                'picked_up':        { text: 'Đã lấy hàng',  class: 'bg-info-subtle text-info-emphasis border border-info' },
+                'delivering':       { text: 'Đang vận chuyển', class: 'bg-primary-subtle text-primary border border-primary badge-original-blue' },
+                'out_for_delivery': { text: 'Đang giao hàng', class: 'bg-primary border text-white badge-original-blue' },
+                'completed':        { text: 'Thành công',    class: 'bg-success-subtle text-success border border-success' },
+                'returning':        { text: 'Đang hoàn', class: 'bg-danger-subtle text-danger border border-danger' },
+                'returned':         { text: 'Đã hoàn hàng',  class: 'bg-dark-subtle text-dark border border-dark' },
+                'issue':            { text: 'Kiện vấn đề',   class: 'bg-danger text-white border border-danger' }
+            };
 
-                container.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2">Đang tải...</p></div>`;
+            function updateOrderStatusBadge(billCode, status) {
+                if (!billCode || !status) return;
+                const info = clientStatusMap[status];
+                if (!info) return;
+                document.querySelectorAll(`.badge[data-billcode="${CSS.escape(billCode)}"]`).forEach(el => {
+                    el.className = `badge rounded-pill ${info.class} mt-1`;
+                    el.innerText = info.text;
+                });
+            }
 
+            // Ảnh hành trình: cột sigpic lưu JSON string mảng URL (có thể nhiều ảnh/1 mốc).
+            // Hiện tấm đầu tiên làm thumbnail, bấm vào để mở lightbox xem hết các tấm còn lại.
+            function renderJtImages(sigpicRaw) {
+                if (!sigpicRaw) return '';
+                let pics = [];
                 try {
-                    const isJT = provider === 'J&T' || provider === 'JTE';
-                    const apiUrl = isJT ? `/api/orders/track-jt/${billCode}` : `/api/viettel/trace?billCode=${billCode}`;
+                    const parsed = JSON.parse(sigpicRaw);
+                    pics = Array.isArray(parsed) ? parsed : [parsed];
+                } catch (e) {
+                    pics = [sigpicRaw]; // dữ liệu cũ có thể chỉ là 1 URL đơn (chưa qua JSON)
+                }
+                pics = pics.filter(u => typeof u === 'string' && u.trim() !== '');
+                if (pics.length === 0) return '';
 
-                    const res = await fetch(apiUrl);
-                    if (!res.ok) throw new Error('Network response was not ok');
-                    const result = await res.json();
+                const setIdx = __trackingPhotoSets.push(pics) - 1;
+                return `
+        <div class="tracking-photo-wrap" onclick="openTrackingLightbox(${setIdx})">
+            <img src="${pics[0]}" class="tracking-photo-thumb" loading="lazy" alt="Ảnh hành trình">
+            ${pics.length > 1 ? `<span class="tracking-photo-count"><i class="fas fa-images"></i> ${pics.length}</span>` : ''}
+        </div>`;
+            }
 
-                    if (result.success || result.code === '1') {
-                        let html = '';
+            function buildJtTimelineHtml(trackingData) {
+                __trackingPhotoSets = [];
+                if (!trackingData || trackingData.length === 0) {
+                    return `<div class="text-center py-5"><p class="text-muted">Không tìm thấy lịch sử hành trình chi tiết.</p></div>`;
+                }
+                return trackingData.map((item, idx) => {
+                    const displayStatus = item.scantypename || 'Cập nhật hành trình';
+                    var issueName = '';
+                    if (item.issuename != null){
+                        issueName = ' - ' + item.issuename;
+                    }else{
+                        issueName = '';
+                    }
+                    const isWarning = displayStatus.includes('hủy') || displayStatus.includes('vấn đề') || displayStatus.includes('取消');
 
-                        if (isJT && result.trackingData && result.trackingData.length > 0) {
-                            html = result.trackingData.map((item, idx) => {
-                                const displayStatus = item.scantypename || 'Cập nhật hành trình';
-                                var issueName = '';
-                                if (item.issuename != null){
-                                    issueName = ' - ' + item.issuename;
-                                }else{
-                                    issueName = '';
-                                }
-                                const isWarning = displayStatus.includes('hủy') || displayStatus.includes('vấn đề') || displayStatus.includes('取消');
-                                const timeVN = item.scantime ? item.scantime.replace('T', ' ').substring(0, 19) : '---';
+                    const addressParts = [
+                        item.scanpost,
+                        item.scanward,
+                        item.scancity,
+                        item.scanprov
+                    ].filter(part => part && part.trim() !== ''); 
 
-                                const addressParts = [
-                                    item.scanpost,
-                                    item.scanward,
-                                    item.scancity,
-                                    item.scanprov
-                                ].filter(part => part && part.trim() !== ''); 
+                    const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : 'Chưa xác định...';
 
-                                const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : 'Chưa xác định...';
-
-                                return `
+                    return `
     <div class="timeline-item ${isWarning ? 'status-warning' : ''}">
         <div class="timeline-date">
             <i class="far fa-clock"></i> ${formatVNTime(item.scantime)}
@@ -1843,8 +1890,39 @@ async function markOrdersPrinted(orderCodes) {
                 <b>Bưu tá:</b> ${item.scanbyname} ${item.scanbycontact ? `(${item.scanbycontact})` : ''}
             </div>
         ` : ''}
+        ${renderJtImages(item.sigpic)}
     </div>`;
-                            }).join('');
+                }).join('');
+            }
+
+            async function handleOrderClick(billCode, status, provider) {
+                const popup = document.getElementById('jtTrackingPopup');
+                const container = document.getElementById('jtTrackingTimeline');
+                const billCodeHeader = document.getElementById('jtTrackingBillCode');
+                const refreshBtn = document.getElementById('btnRefreshJtTracking');
+
+                const isJT = provider === 'J&T' || provider === 'JTE';
+                currentTrackingBillCode = billCode;
+                currentTrackingIsJT = isJT;
+                if (refreshBtn) refreshBtn.classList.toggle('d-none', !isJT);
+
+                if (billCodeHeader) billCodeHeader.innerText = billCode;
+                popup.style.display = 'flex';
+
+                container.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2">Đang tải...</p></div>`;
+
+                try {
+                    const apiUrl = isJT ? `/api/orders/track-jt/${billCode}` : `/api/viettel/trace?billCode=${billCode}`;
+
+                    const res = await fetch(apiUrl);
+                    if (!res.ok) throw new Error('Network response was not ok');
+                    const result = await res.json();
+
+                    if (result.success || result.code === '1') {
+                        let html = '';
+
+                        if (isJT && result.trackingData && result.trackingData.length > 0) {
+                            html = buildJtTimelineHtml(result.trackingData);
                         }
                         else if (!isJT && result.data && result.data.details && result.data.details.length > 0) {
                             const details = [...result.data.details].reverse();
@@ -1866,6 +1944,65 @@ async function markOrdersPrinted(orderCodes) {
                     console.error("Lỗi:", e);
                     container.innerHTML = `<div class="text-center py-5 text-danger">Lỗi kết nối máy chủ.</div>`;
                 }
+            }
+
+            async function refreshJtTracking() {
+                if (!currentTrackingBillCode || !currentTrackingIsJT) return;
+                const container = document.getElementById('jtTrackingTimeline');
+                const btn = document.getElementById('btnRefreshJtTracking');
+                const icon = btn ? btn.querySelector('i') : null;
+
+                if (btn) btn.disabled = true;
+                if (icon) icon.classList.add('fa-spin');
+
+                try {
+                    const res = await fetch(`/api/orders/track-jt/${currentTrackingBillCode}/refresh`, { method: 'POST' });
+                    if (!res.ok) throw new Error('Network response was not ok');
+                    const result = await res.json();
+
+                    if (result.success && result.trackingData && result.trackingData.length > 0) {
+                        container.innerHTML = buildJtTimelineHtml(result.trackingData);
+                        if (result.updatedStatus) {
+                            updateOrderStatusBadge(currentTrackingBillCode, result.updatedStatus);
+                        }
+                    } else {
+                        alert(result.message || 'Không lấy được hành trình mới từ J&T!');
+                    }
+                } catch (e) {
+                    console.error("Lỗi refresh hành trình:", e);
+                    alert('Lỗi kết nối máy chủ khi tra hành trình!');
+                } finally {
+                    if (btn) btn.disabled = false;
+                    if (icon) icon.classList.remove('fa-spin');
+                }
+            }
+
+            let __lightboxImages = [];
+            let __lightboxIndex = 0;
+            function openTrackingLightbox(setIdx) {
+                __lightboxImages = __trackingPhotoSets[setIdx] || [];
+                if (__lightboxImages.length === 0) return;
+                __lightboxIndex = 0;
+                updateLightboxView();
+                document.getElementById('trackingLightbox').style.display = 'flex';
+            }
+            function updateLightboxView() {
+                document.getElementById('trackingLightboxImg').src = __lightboxImages[__lightboxIndex];
+                document.getElementById('trackingLightboxCounter').innerText = `${__lightboxIndex + 1} / ${__lightboxImages.length}`;
+                document.getElementById('trackingLightboxNav').style.display = __lightboxImages.length > 1 ? 'flex' : 'none';
+            }
+            function lightboxPrev(e) {
+                e.stopPropagation();
+                __lightboxIndex = (__lightboxIndex - 1 + __lightboxImages.length) % __lightboxImages.length;
+                updateLightboxView();
+            }
+            function lightboxNext(e) {
+                e.stopPropagation();
+                __lightboxIndex = (__lightboxIndex + 1) % __lightboxImages.length;
+                updateLightboxView();
+            }
+            function closeTrackingLightbox() {
+                document.getElementById('trackingLightbox').style.display = 'none';
             }
 
             function showSimpleModal(billCode, title, iconClass, note = "") {

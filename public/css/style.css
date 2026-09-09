@@ -737,6 +737,83 @@ footer { margin-top: auto; }
     border-top: 1px dashed var(--surface-border);
 }
 
+.tracking-photo-wrap {
+    position: relative;
+    display: inline-block;
+    margin-top: 8px;
+    cursor: pointer;
+}
+.tracking-photo-thumb {
+    width: 84px; height: 84px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--surface-border);
+    display: block;
+}
+.tracking-photo-count {
+    position: absolute;
+    bottom: 4px; right: 4px;
+    background: rgba(0,0,0,.65);
+    color: #fff;
+    font-size: .68rem;
+    padding: 1px 6px;
+    border-radius: 10px;
+    display: flex; align-items: center; gap: 3px;
+}
+
+.img-lightbox-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.9);
+    z-index: 1000010;
+    align-items: center; justify-content: center;
+}
+.img-lightbox-overlay img {
+    max-width: 90vw; max-height: 85vh;
+    border-radius: 4px;
+}
+.lightbox-close {
+    position: absolute; top: 15px; right: 20px;
+    background: none; border: none;
+    color: #fff; font-size: 2rem;
+    cursor: pointer; line-height: 1;
+    z-index: 2;
+}
+.lightbox-nav {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    pointer-events: none; padding: 0 10px;
+}
+.lightbox-arrow {
+    pointer-events: all;
+    background: rgba(255,255,255,.15);
+    border: none; color: #fff;
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+.lightbox-arrow:hover { background: rgba(255,255,255,.3); }
+.lightbox-counter {
+    position: absolute; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    color: #fff; font-size: .85rem;
+    background: rgba(0,0,0,.5);
+    padding: 3px 10px;
+    border-radius: 10px;
+}
+.btn-refresh-tracking {
+    background: none;
+    border: 1px solid var(--surface-border);
+    color: var(--brand-600);
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+}
+.btn-refresh-tracking:hover { background: var(--brand-50); }
+.btn-refresh-tracking:disabled { opacity: .6; cursor: not-allowed; }
+
 .bottom-nav {
     position: fixed;
     bottom: 0; left: 0; right: 0;
