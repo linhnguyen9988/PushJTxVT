@@ -1385,6 +1385,7 @@ function cleanSearchTerm(str) {
     return cleaned
         .replace(/(kcn|phường|xã|quận|huyện|thị xã|thị trấn|tt|tx|thành phố|thi xã|thi trấn|đảo|p.) (?!\d)/gi, "")
         .replace('trấn trấn', '')
+        .replace('nam  yang', 'nam yang')
         .replace('đường mười', 'Đường 10')
         .replace('p mông dương', 'mông dương')
         .replace('.', '')
@@ -3170,11 +3171,11 @@ function mapJtStatusFromTrace(typeName, desc) {
     const isReturnFlow = /chuyển\s*hoàn|hoàn\s*trả|hoàn\s*hàng|trả\s*hàng/.test(t);
 
     if (isReturnFlow) {
-        if (t.includes('chuyển hoàn') || t.includes('đã hoàn')) return 'returned';
+        if (t.includes('nhận hoàn trả') || t.includes('đã hoàn')) return 'returned';
         return 'returning';
     }
 
-    if (t.includes('ký nhận') || t.includes('hoàn thành') || t.includes('thành công')) return 'completed';
+    if (t.includes('hoàn thành') || t.includes('thành công')) return 'completed';
 
     if (t.includes('phát hàng')) return 'out_for_delivery';
     if (t.includes('đến')) return 'delivering';
@@ -4116,6 +4117,11 @@ app.post('/api/admin/update-order', isManager, async (req, res) => {
             customer_name, customer_phone, customer_address,
             jt_prov, jt_district, jt_ward, finalPrice, finalWeight, calculatedFee
         ];
+
+        if (existingOrder.status === 'pending') {
+            sql += `, original_cod = ?`;
+            params.push(finalPrice);
+        }
 
         if (dbStatus) {
             sql += `, status = ?`;

@@ -277,6 +277,11 @@ function getBadge(status) {
                     <div class="text-danger small"><i class="fas fa-minus"></i>
                         <%= Number(order.internal_fee || 0).toLocaleString() %>đ
                     </div>
+                    <% if (order.original_cod !== null && order.original_cod !== undefined && Number(order.original_cod) !== Number(order.price)) { %>
+                    <span class="badge bg-warning text-dark mt-1" title="Đơn hàng đã bị sửa COD">
+                        <i class="fas fa-pen"></i> COD gốc: <%= Number(order.original_cod).toLocaleString() %>đ
+                    </span>
+                    <% } %>
                 </td>
                 <td class="fw-bold text-success">
                     <%= (Number(order.price) - Number(order.internal_fee || 0)).toLocaleString() %>đ
@@ -296,7 +301,7 @@ function getBadge(status) {
                 <td class="text-center">
                     <div class="btn-group">
                         <button class="btn btn-sm btn-outline-primary" 
-                                onclick="prepareEditOrder(<%= i %>)" title="Sửa đơn hàng">
+                                data-index="<%= i %>" onclick="prepareEditOrder(Number(this.dataset.index))" title="Sửa đơn hàng">
                             <i class="fas fa-pencil"></i>
                         </button>
                         <button class="btn btn-sm btn-outline-primary btn-print-single"
@@ -432,6 +437,11 @@ function getBadge(status) {
                 <div>
                     <div class="stat-label">COD</div>
                     <div class="stat-value"><%= Number(order.price).toLocaleString() %>đ</div>
+                    <% if (order.original_cod !== null && order.original_cod !== undefined && Number(order.original_cod) !== Number(order.price)) { %>
+                    <span class="badge bg-warning text-dark mt-1" title="Đơn hàng đã bị sửa COD">
+                        <i class="fas fa-pen"></i> Gốc: <%= Number(order.original_cod).toLocaleString() %>đ
+                    </span>
+                    <% } %>
                 </div>
                 <div>
                     <div class="stat-label">Cước</div>
@@ -447,7 +457,7 @@ function getBadge(status) {
                 <div></div>
                 <div class="d-flex gap-2 order-card-actions">
                     <button class="btn btn-sm btn-outline-primary px-2" 
-                            onclick="prepareEditOrder(<%= i %>)">
+                            data-index="<%= i %>" onclick="prepareEditOrder(Number(this.dataset.index))">
                         <i class="fa-solid fa-pencil"></i>
                     </button>
 
@@ -1219,7 +1229,7 @@ function getBadge(status) {
 }
 
             const CURRENT_USER_ID = '<%= stats.id %>';
-            const _useSocketPrint = <%= (typeof use_socket_print !== 'undefined' && use_socket_print == 1) ? 'true' : 'false' %>;
+            const _useSocketPrint = document.body.dataset.useSocketPrint === 'true';
 
             function printSingleOrder(orderObj) {
                 const currentlyChecked = Array.from(document.querySelectorAll('.order-checkbox:checked'));
