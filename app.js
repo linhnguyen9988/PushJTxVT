@@ -40,9 +40,29 @@ function getBadge(status) {
 }
 
 const app = express();
+
+const ACME_CHALLENGE_DIR = 'C:\\wacs-challenges-tvship';
+if (!fs.existsSync(ACME_CHALLENGE_DIR)) {
+    fs.mkdirSync(ACME_CHALLENGE_DIR, { recursive: true });
+}
+app.get('/.well-known/acme-challenge/:token', (req, res) => {
+    const filePath = path.join(ACME_CHALLENGE_DIR, '.well-known', 'acme-challenge', req.params.token);
+    console.log('[ACME] Yêu cầu challenge:', req.params.token, '-> đọc file:', filePath);
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            console.error('[ACME] Không tìm thấy file challenge:', err.message);
+            return res.status(404).type('text/plain').send('Not found');
+        }
+        res.type('text/plain').send(data);
+    });
+});
+
+const KEY_PATH = 'c:\\tvship.vn-key.pem';
+const CERT_PATH = 'c:\\tvship.vn-chain.pem';
+
 const options = {
-    key: fs.readFileSync('c:\\tvship.vn-key.pem'),
-    cert: fs.readFileSync('c:\\tvship.vn-chain.pem')
+    key: fs.readFileSync(KEY_PATH),
+    cert: fs.readFileSync(CERT_PATH)
 };
 const httpServer = http.createServer(app);
 const httpsServer = https.createServer(options, app);
@@ -119,6 +139,9 @@ io.on("connection", (socket) => {
 });
 
 app.use((req, res, next) => {
+    if (req.path.startsWith('/.well-known/acme-challenge/')) {
+        return next();
+    }
     if (!req.secure) {
         return res.redirect('https://' + req.headers.host + req.url);
     }
@@ -4210,5 +4233,28 @@ httpServer.listen(80, () => {
 
 httpsServer.listen(443, () => {
     console.log('HTTPS: 443');
+});
+
+let certReloadTimeout = null;
+function reloadTvshipCert() {
+    clearTimeout(certReloadTimeout);
+    certReloadTimeout = setTimeout(() => {
+        try {
+            const newKey = fs.readFileSync(KEY_PATH);
+            const newCert = fs.readFileSync(CERT_PATH);
+            httpsServer.setSecureContext({ key: newKey, cert: newCert });
+            console.log('✅ [Cert] Đã reload chứng chỉ mới lúc', new Date().toLocaleString());
+        } catch (err) {
+            console.error('❌ [Cert] Reload thất bại, sẽ thử lại khi có thay đổi tiếp theo:', err.message);
+        }
+    }, 3000);
+}
+
+fs.watch(path.dirname(KEY_PATH), (eventType, filename) => {
+    if (!filename) return;
+    const full = path.join(path.dirname(KEY_PATH), filename);
+    if (full === KEY_PATH || full === CERT_PATH) {
+        reloadTvshipCert();
+    }
 });
 //app.listen(3000, () => console.log('PushOrder System: http://localhost:3000'));
