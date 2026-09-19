@@ -1413,6 +1413,10 @@ function cleanSearchTerm(str) {
         .replace('p mông dương', 'mông dương')
         .replace('.', '')
         .replace('lương thế chân', 'lương thế trân')
+        .replace('đăk drong', 'Đăk Đrông')
+        .replace('đakpơ', 'Đak Pơ')
+        .replace('cư ê wi', 'cư êwi')
+        .replace('lộc thạch', 'Lộc Thạnh')
         .replace('ea knăng', 'ea kuăng')
         .replace('buôn choach', 'buôn choah')
         .replace('si phìn', 'si pa phìn')
@@ -4084,8 +4088,9 @@ app.post('/api/admin/update-order', isManager, async (req, res) => {
             return res.status(403).json({ success: false, message: 'Chỉ Admin mới được sửa đơn đã Hoàn thành hoặc Đã hoàn!' });
         }
 
-        const [userRows] = await db.promise().query('SELECT * FROM users WHERE id = ?', [custId]);
-        const user = userRows[0];
+        const effectiveCustId = custId || existingOrder.user_id;
+        const [userRows] = await db.promise().query('SELECT * FROM users WHERE id = ?', [effectiveCustId]);
+        const user = userRows[0] || {};
 
         const [actorRows] = await db.promise().query('SELECT username, shopname FROM users WHERE username = ?', [req.app_user]);
         const actor = actorRows[0] || {};
@@ -4169,7 +4174,8 @@ app.post('/api/admin/update-order', isManager, async (req, res) => {
             };
             const scanTypeName = statusNameMap[dbStatus] || status;
             const billcode = existingOrder.realjtbillcode || existingOrder.order_code;
-            const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            const now = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' '); // giờ VN (GMT+7)
+            const orderWard = jt_ward || existingOrder.jt_ward || '';
 
             await db.promise().execute(
                 `INSERT INTO jtwaybill 
@@ -4180,7 +4186,7 @@ app.post('/api/admin/update-order', isManager, async (req, res) => {
                     actor.username || req.app_user,   // scanbycode
                     actor.username || req.app_user,   // scanbycontact (username thay SĐT)
                     actor.shopname || req.app_user,   // scanbyname (shopname)
-                    'Biên Hòa',                        // scanward
+                    orderWard,                         // scanward (ward của người nhận)
                     'Biên Hòa',                        // scancity
                     'Đồng Nai',                        // scanprov
                     'NB-TVSHIP-BH',                    // scanpost

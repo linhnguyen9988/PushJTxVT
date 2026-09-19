@@ -1904,6 +1904,7 @@ async function printSelectedOrders2() {// cách cũ
                 const refreshBtn = document.getElementById('btnRefreshJtTracking');
 
                 const isJT = provider === 'J&T' || provider === 'JTE';
+                const isLocalTracking = isJT || provider === 'NB';
                 currentTrackingBillCode = billCode;
                 currentTrackingIsJT = isJT;
                 if (refreshBtn) refreshBtn.classList.toggle('d-none', !isJT);
@@ -1914,7 +1915,7 @@ async function printSelectedOrders2() {// cách cũ
                 container.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2">Đang tải...</p></div>`;
 
                 try {
-                    const apiUrl = isJT ? `/api/orders/track-jt/${billCode}` : `/api/viettel/trace?billCode=${billCode}`;
+                    const apiUrl = isLocalTracking ? `/api/orders/track-jt/${billCode}` : `/api/viettel/trace?billCode=${billCode}`;
 
                     const res = await fetch(apiUrl);
                     if (!res.ok) throw new Error('Network response was not ok');
@@ -1923,10 +1924,10 @@ async function printSelectedOrders2() {// cách cũ
                     if (result.success || result.code === '1') {
                         let html = '';
 
-                        if (isJT && result.trackingData && result.trackingData.length > 0) {
+                        if (isLocalTracking && result.trackingData && result.trackingData.length > 0) {
                             html = buildJtTimelineHtml(result.trackingData);
                         }
-                        else if (!isJT && result.data && result.data.details && result.data.details.length > 0) {
+                        else if (!isLocalTracking && result.data && result.data.details && result.data.details.length > 0) {
                             const details = [...result.data.details].reverse();
                             html = details.map((item, idx) => `
                     <div class="timeline-item">
