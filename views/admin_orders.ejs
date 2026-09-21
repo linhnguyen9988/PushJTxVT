@@ -2092,7 +2092,7 @@ let currentOrderData = null;
             await loadDistrictsAdmin(currentOrderData.jt_prov, currentOrderData.jt_district, 'edit_jt_dist');
             await loadWardsAdmin(currentOrderData.jt_prov, currentOrderData.jt_district, currentOrderData.jt_ward, 'edit_jt_ward');
             const cancelBtn = document.getElementById('btn-cancel-from-edit');
-            if (cancelBtn) cancelBtn.style.display = currentOrderData.provider === 'NB' ? 'block' : 'none';
+            if (cancelBtn) cancelBtn.style.display = (currentOrderData.provider === 'NB' && currentOrderData.status === 'pending') ? 'block' : 'none';
 
             const nbGroup = document.getElementById('group-nb-status');
             if (currentOrderData.provider === 'NB') {
@@ -2111,6 +2111,13 @@ let currentOrderData = null;
             'cancel':           '', 
             'issue':            '',
         };
+        const pendingRadio = document.getElementById('st-pending');
+        if (pendingRadio) {
+            const lockPending = currentOrderData.status !== 'pending';
+            pendingRadio.disabled = lockPending;
+            const pendingLabel = document.querySelector('label[for="st-pending"]');
+            if (pendingLabel) pendingLabel.title = lockPending ? 'Không thể chuyển ngược về Chờ lấy hàng' : '';
+        }
         const radioVal = statusToRadio[currentOrderData.status] || '';
         const radioToCheck = document.querySelector(`input[name="nbStatus"][value="${radioVal}"]`);
         if (radioToCheck) radioToCheck.checked = true;

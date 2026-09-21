@@ -3014,6 +3014,14 @@ app.post('/api/orders/cancel', isAuth, async (req, res) => {
     try {
         if (provider === "NB") {
             if (role !== 'admin') return res.status(403).json({ success: false, message: "Chỉ Admin mới được hủy đơn nội bộ!" });
+
+            // Chỉ cho hủy khi đơn đang ở trạng thái Chờ lấy hàng
+            const [nbRows] = await db.promise().query('SELECT status FROM orders WHERE order_code = ?', [order_code]);
+            if (nbRows.length === 0) return res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng!" });
+            if (nbRows[0].status !== 'pending') {
+                return res.status(400).json({ success: false, message: "Chỉ được hủy đơn ở trạng thái Chờ lấy hàng!" });
+            }
+
             await db.promise().query('UPDATE orders SET status = "cancel" WHERE order_code = ?', [order_code]);
             return res.json({ success: true, message: "Đã hủy đơn nội bộ thành công!" });
 
@@ -4126,6 +4134,10 @@ app.post('/api/admin/update-order', isManager, async (req, res) => {
         };
 
         let dbStatus = status ? (statusMap[status] || null) : null;
+
+        if (dbStatus === 'pending' && existingOrder.status !== 'pending') {
+            return res.status(400).json({ success: false, message: 'Không được chuyển ngược đơn về trạng thái Chờ lấy hàng!' });
+        }
 
         if (!isAdmin && (dbStatus === 'completed' || dbStatus === 'returned')) {
             return res.status(403).json({ success: false, message: 'Chỉ Admin mới được set trạng thái Hoàn thành hoặc Đã hoàn!' });
