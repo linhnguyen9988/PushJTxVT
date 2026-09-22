@@ -12,22 +12,47 @@
             <h3 class="text-center fw-bold mb-1">Xác thực 2 lớp</h3>
             <p class="text-center text-muted small mb-4">
                 Tài khoản <strong><%= username %></strong> đã bật 2FA.<br>
-                Nhập mã 6 số từ app Authenticator để tiếp tục.<br>
-                <span class="text-muted" style="font-size:0.8rem;">(Mất thiết bị? Dùng 1 mã khôi phục đã lưu.)</span>
+                <span id="tfa-hint">Nhập mã 6 số từ app Authenticator để tiếp tục.</span>
             </p>
 
             <%- include('partials/messages') %>
 
-            <form action="/login/2fa" method="POST">
-                <div class="mb-3">
-                    <input type="text" name="code" class="form-control form-control-lg text-center"
-                        placeholder="000000 hoặc mã khôi phục" maxlength="9" autocomplete="one-time-code"
-                        style="letter-spacing: 3px; font-weight: 700;" autofocus required>
+            <form id="tfa-form" action="/login/2fa" method="POST" novalidate>
+                <input type="hidden" name="code" id="tfa-code" value="">
+
+                <div id="otp-mode">
+                    <div class="otp-group" id="otp-group" role="group" aria-label="Mã xác thực 6 số">
+                        <% for (var i = 0; i < 6; i++) { %>
+                            <input type="text" class="otp-box" inputmode="numeric" pattern="[0-9]*"
+                                autocomplete="<%= i === 0 ? 'one-time-code' : 'off' %>"
+                                autocapitalize="off" autocorrect="off" spellcheck="false"
+                                aria-label="Chữ số thứ <%= i + 1 %>" <%= i === 0 ? 'autofocus' : '' %>>
+                        <% } %>
+                    </div>
+
+                    <div class="otp-paste-slot text-center">
+                        <button type="button" id="otp-paste-btn" class="btn btn-sm btn-outline-primary rounded-pill px-3 d-none">
+                            <i class="fas fa-paste me-1"></i>Dán mã <strong id="otp-paste-code" class="ms-1"></strong>
+                        </button>
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary w-100 py-2">Xác nhận</button>
+
+                <div id="recovery-mode" class="d-none mb-3">
+                    <input type="text" id="recovery-input" class="form-control form-control-lg text-center"
+                        placeholder="XXXX-XXXX" maxlength="9" autocomplete="off" autocapitalize="characters"
+                        spellcheck="false" style="letter-spacing: 3px; font-weight: 700;">
+                </div>
+
+                <button type="submit" id="tfa-submit" class="btn btn-primary w-100 py-2" disabled>Xác nhận</button>
             </form>
 
-            <div class="text-center mt-4">
+            <div class="text-center mt-3">
+                <button type="button" id="tfa-toggle" class="btn btn-link btn-sm text-decoration-none p-0">
+                    Mất thiết bị? Dùng mã khôi phục
+                </button>
+            </div>
+
+            <div class="text-center mt-3">
                 <a href="/login/2fa/cancel" class="small text-decoration-none text-muted">
                     <i class="fas fa-arrow-left me-1"></i>Quay lại đăng nhập
                 </a>
@@ -38,6 +63,265 @@
 
 <style>
 .auth-wrap { min-height: calc(100vh - 90px); padding: 24px 0; }
+
+.otp-group { display: flex; justify-content: center; gap: 8px; }
+.otp-group .otp-box:nth-child(4) { margin-left: 8px; } 
+.otp-box {
+    flex: 1 1 0; min-width: 0; max-width: 52px; height: 56px; padding: 0;
+    text-align: center; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--bs-body-color); background: var(--bs-body-bg);
+    border: 1.5px solid var(--bs-border-color); border-radius: 12px;
+    caret-color: var(--bs-primary);
+    transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.otp-box:focus { outline: 0; border-color: var(--bs-primary); box-shadow: 0 0 0 .25rem rgba(13, 110, 253, .18); }
+.otp-box.filled { border-color: rgba(13, 110, 253, .55); }
+.otp-box.error { border-color: var(--bs-danger); background: rgba(220, 53, 69, .06); }
+.otp-box.pop { animation: otpPop .18s ease-out; }
+.otp-group.shake { animation: otpShake .35s ease-in-out; }
+.otp-paste-slot { min-height: 2.25rem; margin: .9rem 0 .5rem; }
+
+@keyframes otpPop { 0% { transform: scale(.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes otpShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .otp-box.pop, .otp-group.shake { animation: none; } }
 </style>
+
+<script>
+(function () {
+    var LEN = 6;
+    var form = document.getElementById('tfa-form');
+    var hidden = document.getElementById('tfa-code');
+    var group = document.getElementById('otp-group');
+    var boxes = Array.prototype.slice.call(group.querySelectorAll('.otp-box'));
+    var submitBtn = document.getElementById('tfa-submit');
+    var otpMode = document.getElementById('otp-mode');
+    var recMode = document.getElementById('recovery-mode');
+    var recInput = document.getElementById('recovery-input');
+    var toggleBtn = document.getElementById('tfa-toggle');
+    var hint = document.getElementById('tfa-hint');
+    var pasteBtn = document.getElementById('otp-paste-btn');
+    var pasteCode = document.getElementById('otp-paste-code');
+
+    var recoveryMode = false;
+    var clipCode = null;
+    var submitting = false;
+
+    function getCode() { return boxes.map(function (b) { return b.value; }).join(''); }
+
+    function clearError() {
+        boxes.forEach(function (b) { b.classList.remove('error'); });
+    }
+
+    function updateSubmit() {
+        var ok = recoveryMode ? recInput.value.length >= 8 : getCode().length === LEN;
+        submitBtn.disabled = !ok || submitting;
+    }
+
+    function sync() {
+        var code = getCode();
+        hidden.value = code;
+        boxes.forEach(function (b) {
+            b.dataset.prev = b.value;
+            b.classList.toggle('filled', !!b.value);
+        });
+        if (code.length === LEN) hidePaste();
+        updateSubmit();
+    }
+
+    function pop(box) {
+        box.classList.remove('pop');
+        void box.offsetWidth; // restart animation
+        box.classList.add('pop');
+    }
+
+    function fill(digits, start) {
+        digits = String(digits || '').replace(/\D/g, '');
+        if (!digits) return;
+        if (digits.length >= LEN) { digits = digits.slice(0, LEN); start = 0; }
+        var i = start;
+        for (var k = 0; k < digits.length && i < LEN; k++, i++) {
+            boxes[i].value = digits[k];
+            pop(boxes[i]);
+        }
+        clearError();
+        sync();
+        boxes[Math.min(i, LEN - 1)].focus();
+    }
+
+    boxes.forEach(function (box, idx) {
+        box.addEventListener('focus', function () { box.select(); });
+        box.addEventListener('mouseup', function (e) { e.preventDefault(); });
+
+        box.addEventListener('keydown', function (e) {
+            if (e.ctrlKey || e.metaKey || e.altKey) return; 
+            switch (e.key) {
+                case 'Backspace':
+                    e.preventDefault();
+                    if (box.value) {
+                        box.value = '';
+                    } else if (idx > 0) {
+                        boxes[idx - 1].value = '';
+                        boxes[idx - 1].focus();
+                    }
+                    clearError(); sync();
+                    break;
+                case 'Delete':
+                    e.preventDefault(); box.value = ''; clearError(); sync();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault(); if (idx > 0) boxes[idx - 1].focus();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault(); if (idx < LEN - 1) boxes[idx + 1].focus();
+                    break;
+                case 'Home':
+                    e.preventDefault(); boxes[0].focus();
+                    break;
+                case 'End':
+                    e.preventDefault(); boxes[LEN - 1].focus();
+                    break;
+            }
+        });
+
+        box.addEventListener('input', function (e) {
+            var prev = box.dataset.prev || '';
+            var raw = box.value;
+            var digits = raw.replace(/\D/g, '');
+
+            if (!digits) {
+                var deleting = (e.inputType || '').indexOf('delete') === 0;
+                box.value = deleting ? '' : prev;   
+            } else if (digits.length === 1) {
+                box.value = digits;
+                pop(box);
+                if (idx < LEN - 1) boxes[idx + 1].focus();
+            } else if (digits.length === 2 && prev && digits.indexOf(prev) !== -1) {
+                box.value = digits.replace(prev, '');
+                pop(box);
+                if (idx < LEN - 1) boxes[idx + 1].focus();
+            } else {
+                fill(digits, idx);
+                return;
+            }
+            clearError(); sync();
+        });
+
+        box.addEventListener('paste', function (e) {
+            e.preventDefault();
+            var text = (e.clipboardData || window.clipboardData).getData('text');
+            fill(text, idx);
+        });
+    });
+
+    function extractCode(text) {
+        var t = String(text || '').trim().replace(/[\s-]/g, '');
+        return /^\d{6}$/.test(t) ? t : null;
+    }
+
+    function showPaste(code) {
+        clipCode = code;
+        pasteCode.textContent = code.slice(0, 3) + ' ' + code.slice(3);
+        pasteBtn.classList.remove('d-none');
+    }
+
+    function hidePaste() {
+        clipCode = null;
+        pasteBtn.classList.add('d-none');
+    }
+
+    function checkClipboard() {
+        if (recoveryMode || getCode().length === LEN) { hidePaste(); return; }
+        navigator.clipboard.readText().then(function (text) {
+            var code = extractCode(text);
+            if (code && !recoveryMode && getCode().length < LEN) showPaste(code); else hidePaste();
+        }).catch(function () {  });
+    }
+
+    pasteBtn.addEventListener('click', function () {
+        if (clipCode) fill(clipCode, 0);
+        hidePaste();
+    });
+
+    function initClipboard() {
+        if (!navigator.clipboard || !navigator.clipboard.readText ||
+            !navigator.permissions || !navigator.permissions.query) return;
+
+        navigator.permissions.query({ name: 'clipboard-read' }).then(function (status) {
+            function granted() { return status.state === 'granted'; }
+
+            if (granted()) {
+                checkClipboard();
+            } else if (status.state === 'prompt') {
+                var once = function () {
+                    document.removeEventListener('pointerdown', once);
+                    document.removeEventListener('keydown', once);
+                    checkClipboard();
+                };
+                document.addEventListener('pointerdown', once);
+                document.addEventListener('keydown', once);
+            }
+
+            status.onchange = function () { if (granted()) checkClipboard(); };
+            window.addEventListener('focus', function () { if (granted()) checkClipboard(); });
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden && granted()) checkClipboard();
+            });
+        }).catch(function () { });
+    }
+
+    toggleBtn.addEventListener('click', function () {
+        recoveryMode = !recoveryMode;
+        otpMode.classList.toggle('d-none', recoveryMode);
+        recMode.classList.toggle('d-none', !recoveryMode);
+        hint.textContent = recoveryMode
+            ? 'Nhập 1 mã khôi phục bạn đã lưu (mỗi mã chỉ dùng được 1 lần).'
+            : 'Nhập mã 6 số từ app Authenticator để tiếp tục.';
+        toggleBtn.textContent = recoveryMode ? 'Dùng mã từ app Authenticator' : 'Mất thiết bị? Dùng mã khôi phục';
+        if (recoveryMode) { hidePaste(); recInput.focus(); }
+        else { boxes[Math.min(getCode().length, LEN - 1)].focus(); checkClipboard(); }
+        updateSubmit();
+    });
+
+    recInput.addEventListener('input', function () {
+        var v = recInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+        if (v.length > 4) v = v.slice(0, 4) + '-' + v.slice(4);
+        recInput.value = v;
+        updateSubmit();
+    });
+
+    form.addEventListener('submit', function (e) {
+        if (submitting) { e.preventDefault(); return; }
+        if (recoveryMode) hidden.value = recInput.value;
+        else hidden.value = getCode();
+
+        if (!hidden.value || (!recoveryMode && hidden.value.length !== LEN)) {
+            e.preventDefault();
+            return;
+        }
+        submitting = true;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang xác nhận...';
+    });
+
+    // Quay lại bằng nút Back (bfcache) -> trả nút về trạng thái ban đầu
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) {
+            submitting = false;
+            submitBtn.textContent = 'Xác nhận';
+            updateSubmit();
+        }
+    });
+
+    /* ───────── Khởi tạo ───────── */
+    // Server báo sai mã -> rung nhẹ + viền đỏ
+    if (document.querySelector('.alert-danger')) {
+        boxes.forEach(function (b) { b.classList.add('error'); });
+        group.classList.add('shake');
+    }
+    boxes[0].focus();
+    sync();
+    initClipboard();
+})();
+</script>
 
 <%- include('partials/footer', { active: 'orders' }) %>
