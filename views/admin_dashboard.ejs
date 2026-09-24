@@ -3,8 +3,6 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
   :root {
-    /* Mapped to the site-wide theme tokens (public/css/style.css) so this
-       page follows the light/dark toggle instead of staying hard-coded dark. */
     --surface: var(--surface-card);
     --surface2: var(--ink-100);
     --border: var(--surface-border);
@@ -77,7 +75,6 @@
     color: var(--text);
   }
 
-  /* ── Card ── */
   .adm-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -112,7 +109,6 @@
   }
   .adm-card-body { padding: 20px; }
 
-  /* ── Search Bar ── */
   .search-bar {
     display: flex;
     gap: 10px;
@@ -392,7 +388,6 @@
   ::-webkit-scrollbar-track { background: var(--surface); }
   ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 4px; }
 
-  /* ── Toggle switch (khóa đăng ký, v.v.) ── */
   .reg-lock-row {
     display: flex;
     align-items: center;
@@ -455,10 +450,8 @@
 
   <div class="row g-4">
 
-    <!-- ── LEFT COLUMN ── -->
     <div class="col-lg-4">
 
-      <!-- VTP Config -->
       <div class="adm-card">
         <div class="adm-card-header">
           <h6><span class="dot" style="background:var(--accent2)"></span> Viettel Post</h6>
@@ -482,7 +475,6 @@
         </div>
       </div>
 
-      <!-- Khóa đăng ký tài khoản mới -->
       <div class="adm-card">
         <div class="adm-card-header">
           <h6><span class="dot" style="background:var(--accent2)"></span> Đăng ký tài khoản</h6>
@@ -504,7 +496,6 @@
         </div>
       </div>
 
-      <!-- Today Orders -->
       <div class="adm-card">
         <div class="adm-card-header">
           <h6><span class="dot" style="background:var(--accent3)"></span> Đơn hàng hôm nay</h6>
@@ -531,7 +522,6 @@
         </div>
       </div>
 
-      <!-- Activity Log -->
       <div class="adm-card">
         <div class="adm-card-header">
           <h6><span class="dot" style="background:#4f8ef7"></span> Nhật ký hoạt động</h6>
@@ -549,10 +539,8 @@
 
     </div>
 
-    <!-- ── RIGHT COLUMN ── -->
     <div class="col-lg-8">
 
-      <!-- Bill Search -->
       <div class="adm-card">
         <div class="adm-card-header">
           <h6><span class="dot" style="background:var(--accent)"></span> Tra cứu & Chỉnh sửa vận đơn</h6>
@@ -576,7 +564,6 @@
         </div>
       </div>
 
-      <!-- User Management -->
       <div class="adm-card">
         <div class="adm-card-header">
           <h6><span class="dot" style="background:var(--accent3)"></span> Quản lý người dùng</h6>
@@ -680,7 +667,6 @@
   </div>
 </div>
 
-<!-- ═══ MODALS (giữ nguyên logic, style dark) ═══ -->
 
 <div id="admin-jt-modal" class="custom-popup-overlay"
   style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
@@ -800,7 +786,6 @@
   </div>
 </div>
 
-<!-- Modal: Cập nhật token hệ thống Viettel Post -->
 <div id="vtp-modal"
   style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;">
   <div class="bg-white p-4 rounded shadow-lg text-start" style="width:380px;max-width:92%;">
@@ -822,7 +807,6 @@
   </div>
 </div>
 
-<!-- Modal: nhập mã 2FA để xác nhận thao tác sửa thông tin user -->
 <div id="admin-2fa-modal"
   style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;">
   <div class="bg-white p-4 rounded shadow-lg text-start" style="width:360px;max-width:92%;">
@@ -881,9 +865,7 @@
   const CURRENT_ROLE = "<%= currentRole %>";
   const ADMIN_2FA_ENABLED = <%- admin2FAEnabled ? 'true' : 'false' %>;
 
-  // ═══ Modal xác nhận 2FA dùng chung cho các thao tác sửa thông tin user ═══
   let _pending2FAResolve = null;
-  // Ô nhập 6 số: đủ 6 số thì tự xác nhận (có nút chuyển sang mã khôi phục)
   const adminOtp = OtpInput.mount(document.getElementById('admin2fa-code'), {
     recovery: true, size: 'sm', onSubmit: () => confirm2FAModal()
   });
@@ -905,7 +887,6 @@
     if (_pending2FAResolve) { const r = _pending2FAResolve; _pending2FAResolve = null; r(null); }
   }
 
-  // Yêu cầu mã 2FA rồi submit 1 form (dùng cho Khóa/Mở khóa, Xóa user)
   async function submitWith2FA(formId, hiddenFieldId) {
     if (CURRENT_ROLE === 'admin' && !ADMIN_2FA_ENABLED) {
       showNotice('Cần bật 2FA', 'Bạn cần bật Xác thực 2 lớp (2FA) trong Trang cá nhân trước khi thực hiện thao tác này trên tài khoản người dùng.', 'warning');
@@ -918,7 +899,7 @@
   }
 
   async function toggleRegistrationLock(checkbox) {
-    const prevState = !checkbox.checked; // trạng thái trước khi bấm
+    const prevState = !checkbox.checked;
 
     if (!ADMIN_2FA_ENABLED) {
       checkbox.checked = prevState;

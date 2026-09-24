@@ -1418,6 +1418,7 @@ function cleanSearchTerm(str) {
         .replace('cư ê wi', 'cư êwi')
         .replace('lộc thạch', 'Lộc Thạnh')
         .replace('ea knăng', 'ea kuăng')
+        .replace('chi lễ', 'tri lễ')
         .replace('buôn choach', 'buôn choah')
         .replace('si phìn', 'si pa phìn')
         .replace(' (gia kiệm)', '')

@@ -1553,7 +1553,6 @@ async function markOrdersPrinted(orderCodes) {
 <html>
     <head>
         <style>
-            /* Tag search box */
             .tag-search-box {
                 cursor: text;
             }
@@ -1583,7 +1582,6 @@ async function markOrdersPrinted(orderCodes) {
                 from { transform: scale(0.7); opacity: 0; }
                 to   { transform: scale(1);   opacity: 1; }
             }
-            /* Mobile filter drawer */
             .filter-overlay {
                 display: none;
                 position: fixed;
@@ -1632,7 +1630,6 @@ async function markOrdersPrinted(orderCodes) {
                 overflow: hidden;
             }
             img { 
-                /* Trừ hao 2% để không bao giờ bị chạm mép gây nhảy trang */
                 max-width: 98%; 
                 max-height: 98%;
                 object-fit: contain;
@@ -1812,8 +1809,6 @@ async function markOrdersPrinted(orderCodes) {
             let currentTrackingIsJT = false;
             let __trackingPhotoSets = [];
 
-            // Bản sao (phía client) của statusMap server-side để cập nhật lại badge trạng thái
-            // trên danh sách đơn ngay sau khi refresh hành trình thành công, không cần load lại trang.
             const clientStatusMap = {
                 'pending':          { text: 'Chờ lấy hàng', class: 'bg-warning-subtle text-warning-emphasis border border-warning' },
                 'cancel':           { text: 'Đã hủy đơn',   class: 'bg-secondary-subtle text-secondary border border-secondary' },
@@ -1835,9 +1830,6 @@ async function markOrdersPrinted(orderCodes) {
                     el.innerText = info.text;
                 });
             }
-
-            // Ảnh hành trình: cột sigpic lưu JSON string mảng URL (có thể nhiều ảnh/1 mốc).
-            // Hiện tấm đầu tiên làm thumbnail, bấm vào để mở lightbox xem hết các tấm còn lại.
             function renderJtImages(sigpicRaw) {
                 if (!sigpicRaw) return '';
                 let pics = [];
@@ -1845,7 +1837,7 @@ async function markOrdersPrinted(orderCodes) {
                     const parsed = JSON.parse(sigpicRaw);
                     pics = Array.isArray(parsed) ? parsed : [parsed];
                 } catch (e) {
-                    pics = [sigpicRaw]; // dữ liệu cũ có thể chỉ là 1 URL đơn (chưa qua JSON)
+                    pics = [sigpicRaw]; 
                 }
                 pics = pics.filter(u => typeof u === 'string' && u.trim() !== '');
                 if (pics.length === 0) return '';

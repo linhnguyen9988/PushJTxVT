@@ -135,13 +135,11 @@
                                     </div>
                                 </div>
 
-                                <!-- Tổng -->
                                 <div class="d-flex justify-content-between align-items-center p-2 rounded mb-2 bg-light border">
                                     <span class="fw-bold small">📦 Tổng đơn</span>
                                     <span class="fw-bold" id="s-total">--</span>
                                 </div>
 
-                                <!-- Các trạng thái -->
                                 <div id="stats-rows">
                                     <div class="stat-row st-pending">
                                         <span class="text-warning-emphasis">⏳ Chờ lấy hàng</span>
@@ -325,7 +323,6 @@
                     </div>
                 </div>
 
-                <!-- Card: Cài đặt in tem -->
                 <div class="card border-0 shadow-sm p-4 mt-4">
                     <h6 class="fw-bold mb-3">
                         <i class="fas fa-print text-primary me-2"></i>Cài đặt in tem
@@ -408,7 +405,6 @@
                 </div>
             </div>
 
-            <!-- Modal: Đổi mật khẩu (riêng biệt) -->
             <div id="change-password-modal-overlay" class="custom-popup-overlay"
                 style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
                 <div class="bg-white p-4 rounded shadow-lg" style="min-width: 320px; max-width: 420px; width: 90%;">
@@ -440,7 +436,6 @@
                 </div>
             </div>
 
-            <!-- Modal: Thiết lập 2FA -->
             <div id="setup-2fa-modal-overlay" class="custom-popup-overlay"
                 style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
                 <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 420px; width: 90%;">
@@ -473,7 +468,6 @@
                 </div>
             </div>
 
-            <!-- Modal: Tắt 2FA -->
             <div id="disable-2fa-modal-overlay" class="custom-popup-overlay"
                 style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
                 <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 400px; width: 90%;">
@@ -488,7 +482,6 @@
                 </div>
             </div>
 
-            <!-- Modal: Xác nhận trước khi tạo lại mã khôi phục -->
             <div id="regen-recovery-modal-overlay" class="custom-popup-overlay"
                 style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
                 <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 400px; width: 90%;">
@@ -506,7 +499,6 @@
                 </div>
             </div>
 
-            <!-- Modal: Hiển thị mã khôi phục (chỉ hiện 1 lần) -->
             <div id="recovery-codes-modal-overlay" class="custom-popup-overlay"
                 style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001; justify-content:center; align-items:center;">
                 <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 440px; width: 92%;">
@@ -775,12 +767,10 @@
     </script>
 
     <script>
-        // ═══ Ô nhập mã 2FA (6 ô, tự gửi khi đủ 6 số) ═══
-        const cpOtpHost = document.getElementById('cp-totp');   // chỉ có khi đã bật 2FA
+        const cpOtpHost = document.getElementById('cp-totp');
         const cpOtp = cpOtpHost ? OtpInput.mount(cpOtpHost, {
             recovery: true, size: 'sm',
             onSubmit: (value, info) => {
-                // Tự gửi chỉ khi 3 ô mật khẩu đã điền; nếu chưa thì để người dùng điền nốt rồi bấm nút
                 const filled = ['cp-old', 'cp-new', 'cp-confirm'].every(id => document.getElementById(id).value);
                 if (info.auto && !filled) return;
                 submitChangePassword();
@@ -796,7 +786,6 @@
             recovery: true, size: 'sm', onSubmit: () => confirmRegenRecovery()
         });
 
-        // ═══ Đổi mật khẩu (modal riêng) ═══
         function openChangePasswordModal() {
             document.getElementById('cp-old').value = '';
             document.getElementById('cp-new').value = '';
@@ -850,7 +839,6 @@
             }
         }
 
-        // ═══ Bật 2FA ═══
         async function openSetup2FAModal() {
             document.getElementById('setup-2fa-modal-overlay').style.display = 'flex';
             document.getElementById('tfa-setup-loading').style.display = 'block';
@@ -870,7 +858,7 @@
                 document.getElementById('tfa-secret-text').value = data.secret;
                 document.getElementById('tfa-setup-loading').style.display = 'none';
                 document.getElementById('tfa-setup-body').style.display = 'block';
-                setupOtp.reset({ noFocus: true });   // để nút "Dán mã" kiểm tra clipboard khi form đã hiện
+                setupOtp.reset({ noFocus: true });
             } catch (e) {
                 closeSetup2FAModal();
                 showNotice('Lỗi', 'Lỗi kết nối server.', 'error');
@@ -915,7 +903,6 @@
             }
         }
 
-        // ═══ Tắt 2FA ═══
         function openDisable2FAModal() {
             document.getElementById('tfa-disable-error').style.display = 'none';
             document.getElementById('disable-2fa-modal-overlay').style.display = 'flex';
@@ -953,7 +940,6 @@
             }
         }
 
-        // ═══ Tạo lại mã khôi phục ═══
         function openRegenRecoveryModal() {
             document.getElementById('regen-recovery-error').style.display = 'none';
             document.getElementById('regen-recovery-modal-overlay').style.display = 'flex';
@@ -990,7 +976,6 @@
             }
         }
 
-        // ═══ Modal hiển thị mã khôi phục (dùng chung cho Bật 2FA & Tạo lại mã) ═══
         let _currentRecoveryCodes = [];
         function showRecoveryCodesModal(codes) {
             _currentRecoveryCodes = codes;

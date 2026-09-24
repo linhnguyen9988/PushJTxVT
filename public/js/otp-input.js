@@ -1,31 +1,15 @@
-/*!
- * OtpInput – ô nhập mã 2FA dùng chung (6 ô, mỗi ô 1 số)
- *
- *   var otp = OtpInput.mount(document.getElementById('host'), {
- *       recovery: true,        // cho phép chuyển sang nhập mã khôi phục (XXXX-XXXX)
- *       size: 'sm',            // 'sm' = ô nhỏ hơn (dùng trong modal)
- *       autofocus: true,
- *       onChange:     function (otp) {},
- *       onModeChange: function (mode, otp) {},           // 'code' | 'recovery'
- *       onSubmit:     function (value, info) {}          // info.auto = true khi tự gửi lúc đủ 6 số
- *   });
- *
- *   otp.getValue()  otp.isComplete()  otp.reset({keepMode, error, noFocus})
- *   otp.focus()  otp.setError(bool)  otp.setDisabled(bool)  otp.getMode()
- */
 (function (global) {
     'use strict';
 
     var LEN = 6;
-    var AUTO_DELAY = 150;                 // ms chờ sau số cuối rồi mới tự gửi
-    var STALE_MS = 90 * 1000;             // không gợi ý lại mã vừa gửi trong 90s
+    var AUTO_DELAY = 150;
+    var STALE_MS = 90 * 1000;
     var LAST_KEY = 'otp:last-submitted';
 
     var instances = [];
-    var perm = 'unknown';                 // granted | prompt | denied | unsupported
+    var perm = 'unknown';
     var armed = false;
 
-    /* ───────── Clipboard (dùng chung cho mọi instance) ───────── */
     function canRead() { return !!(navigator.clipboard && navigator.clipboard.readText); }
     function hasActivation() { return !!(navigator.userActivation && navigator.userActivation.isActive); }
 
@@ -49,7 +33,6 @@
         instances.forEach(function (i) { i._clip(); });
     }
 
-    // Chrome hỏi quyền đọc clipboard cần 1 thao tác của người dùng -> chờ cú chạm đầu tiên
     function armGesture() {
         if (armed) return;
         armed = true;
@@ -68,12 +51,11 @@
             perm = st.state;
             st.onchange = function () { perm = st.state; refreshAll(); };
             refreshAll();
-        }).catch(function () { perm = 'unsupported'; }); // Firefox/Safari: không cho web tự đọc clipboard
+        }).catch(function () { perm = 'unsupported'; }); 
     }
     window.addEventListener('focus', refreshAll);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshAll(); });
 
-    /* ───────── Mount ───────── */
     function mount(host, opts) {
         opts = opts || {};
         if (host._otp) return host._otp;
@@ -83,7 +65,7 @@
         var lastFired = '';
         var clipCode = null;
         var timer = null;
-        var ready = false;               // chưa emit onChange trong lúc mount
+        var ready = false;       
 
         host.classList.add('otp');
         if (opts.size === 'sm') host.classList.add('otp--sm');
@@ -121,7 +103,6 @@
         var pasteBtn = host.querySelector('.otp-paste');
         var pasteLabel = host.querySelector('.otp-paste-code');
 
-        /* ── helpers ── */
         function getCode() { return boxes.map(function (b) { return b.value; }).join(''); }
         function isComplete() { return mode === 'recovery' ? recInput.value.length === 9 : getCode().length === LEN; }
         function getValue() { return mode === 'recovery' ? recInput.value : getCode(); }
@@ -144,7 +125,6 @@
             if (opts.onSubmit) opts.onSubmit(v, { auto: !!auto });
         }
 
-        // fromUser = true khi do người dùng gõ/dán -> mới được phép tự gửi
         function sync(fromUser) {
             var code = getCode();
             boxes.forEach(function (b) { b.dataset.prev = b.value; b.classList.toggle('filled', !!b.value); });
@@ -165,7 +145,6 @@
             emitChange();
         }
 
-        // Điền digits từ ô `start`; đủ 6 số thì luôn điền từ ô đầu
         function fill(digits, start, fromUser) {
             digits = String(digits || '').replace(/\D/g, '');
             if (!digits) return;
@@ -180,7 +159,6 @@
             boxes[Math.min(i, LEN - 1)].focus();
         }
 
-        /* ── paste button ── */
         function showPaste(code) {
             clipCode = code;
             pasteLabel.textContent = code.slice(0, 3) + ' ' + code.slice(3);
@@ -193,7 +171,7 @@
                 var c = extractCode(text);
                 if (c && !recentlySubmitted(c) && mode === 'code' && !disabled && getCode().length < LEN && visible()) showPaste(c);
                 else hidePaste();
-            }).catch(function () { /* không có quyền / tab chưa focus */ });
+            }).catch(function () {});
         }
 
         function checkClip() {
@@ -208,13 +186,12 @@
             if (c) fill(c, 0, true);
         });
 
-        /* ── 6 ô ── */
         boxes.forEach(function (box, idx) {
             box.addEventListener('focus', function () { box.select(); });
-            box.addEventListener('mouseup', function (e) { e.preventDefault(); }); // giữ vùng chọn (Safari)
+            box.addEventListener('mouseup', function (e) { e.preventDefault(); });
 
             box.addEventListener('keydown', function (e) {
-                if (e.ctrlKey || e.metaKey || e.altKey) return; // Ctrl/Cmd+V, +A...
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
                 switch (e.key) {
                     case 'Enter':
                         e.preventDefault();
@@ -236,29 +213,27 @@
                 }
             });
 
-            // Gõ số / autofill SMS / bàn phím ảo Android
             box.addEventListener('input', function (e) {
                 var prev = box.dataset.prev || '';
                 var raw = box.value;
                 var digits = raw.replace(/\D/g, '');
 
                 if (!digits) {
-                    box.value = (e.inputType || '').indexOf('delete') === 0 ? '' : prev; // gõ chữ -> bỏ qua
+                    box.value = (e.inputType || '').indexOf('delete') === 0 ? '' : prev;
                 } else if (digits.length === 1) {
                     box.value = digits; pop(box);
                     if (idx < LEN - 1) boxes[idx + 1].focus();
                 } else if (digits.length === 2 && prev && digits.indexOf(prev) !== -1) {
-                    box.value = digits.replace(prev, ''); pop(box);   // gõ đè lên ô đã có số
+                    box.value = digits.replace(prev, ''); pop(box); 
                     if (idx < LEN - 1) boxes[idx + 1].focus();
                 } else {
-                    fill(digits, idx, true);                          // autofill / dán kiểu input
+                    fill(digits, idx, true);
                     return;
                 }
                 setError(false);
                 sync(true);
             });
 
-            // Dán vào BẤT KỲ ô nào -> điền hết
             box.addEventListener('paste', function (e) {
                 e.preventDefault();
                 var text = (e.clipboardData || window.clipboardData).getData('text');
@@ -266,7 +241,6 @@
             });
         });
 
-        /* ── mã khôi phục XXXX-XXXX ── */
         recInput.addEventListener('input', function () {
             var v = recInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
             if (v.length > 4) v = v.slice(0, 4) + '-' + v.slice(4);
@@ -294,7 +268,6 @@
         }
         if (toggleBtn) toggleBtn.addEventListener('click', function () { setMode(mode === 'code' ? 'recovery' : 'code'); });
 
-        /* ── API ── */
         function focus() {
             if (mode === 'recovery') recInput.focus();
             else boxes[Math.min(getCode().length, LEN - 1)].focus();

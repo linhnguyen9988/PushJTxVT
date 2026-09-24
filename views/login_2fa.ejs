@@ -130,7 +130,7 @@
 
     function pop(box) {
         box.classList.remove('pop');
-        void box.offsetWidth; // restart animation
+        void box.offsetWidth;
         box.classList.add('pop');
     }
 
@@ -303,7 +303,6 @@
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Đang xác nhận...';
     });
 
-    // Quay lại bằng nút Back (bfcache) -> trả nút về trạng thái ban đầu
     window.addEventListener('pageshow', function (e) {
         if (e.persisted) {
             submitting = false;
@@ -312,8 +311,6 @@
         }
     });
 
-    /* ───────── Khởi tạo ───────── */
-    // Server báo sai mã -> rung nhẹ + viền đỏ
     if (document.querySelector('.alert-danger')) {
         boxes.forEach(function (b) { b.classList.add('error'); });
         group.classList.add('shake');
