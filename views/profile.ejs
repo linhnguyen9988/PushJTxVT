@@ -100,6 +100,27 @@
                     <% } %>
                 </div>
 
+                <div class="card border-0 shadow-sm p-4 text-start mt-4" id="sessions-card">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-laptop me-2 text-muted"></i>Thiết bị đăng nhập</h6>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="loadSessions()" title="Làm mới">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Các thiết bị đang đăng nhập tài khoản của bạn. Nếu thấy thiết bị lạ, hãy đăng xuất ngay và đổi mật khẩu.
+                    </p>
+                    <div id="sessions-legacy-note" class="alert alert-warning py-1 px-2 small mb-3" style="display:none;">
+                        Bạn đang dùng phiên đăng nhập cũ nên không hiển thị trong danh sách. Hãy đăng xuất và đăng nhập lại để quản lý phiên này.
+                    </div>
+                    <div id="sessions-list">
+                        <div class="text-center text-muted py-3 small"><i class="fas fa-spinner fa-spin me-1"></i> Đang tải...</div>
+                    </div>
+                    <button type="button" class="btn btn-outline-danger btn-sm w-100 shadow-sm mt-3" id="btn-logout-all" onclick="logoutAllSessions()">
+                        <i class="fas fa-right-from-bracket me-1"></i> Đăng xuất tất cả thiết bị
+                    </button>
+                </div>
+
                 <div class="card border-0 shadow-sm p-4 text-start mt-4">
                     <h6 class="fw-bold mb-3"><i class="fas fa-circle-half-stroke me-2 text-muted"></i>Giao diện</h6>
                     <div class="theme-toggle-row">
@@ -746,6 +767,83 @@
         });
 
         loadStats(1);
+    </script>
+
+    <script>
+        function escSess(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function fmtSessTime(v) {
+            if (!v) return '--';
+            var d = new Date(v);
+            if (isNaN(d)) return '--';
+            return d.toLocaleString('vi-VN', { hour12: false });
+        }
+        function sessIcon(t) {
+            if (t === 'mobile') return 'fa-mobile-screen';
+            if (t === 'tablet') return 'fa-tablet-screen-button';
+            return 'fa-desktop';
+        }
+
+        async function loadSessions() {
+            var box = document.getElementById('sessions-list');
+            try {
+                var r = await fetch('/api/sessions', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (r.status === 401) { window.location.href = '/login'; return; }
+                var data = await r.json();
+                if (!data.success) throw new Error(data.message || 'Lỗi');
+                document.getElementById('sessions-legacy-note').style.display = data.legacy ? '' : 'none';
+
+                if (!data.sessions.length) {
+                    box.innerHTML = '<div class="text-center text-muted py-3 small">Không có phiên đăng nhập nào.</div>';
+                    return;
+                }
+                box.innerHTML = data.sessions.map(function (s) {
+                    return '<div class="d-flex align-items-start gap-3 py-2 border-bottom session-item">' +
+                        '<div class="text-muted pt-1" style="width:28px;text-align:center;"><i class="fas ' + sessIcon(s.device_type) + ' fa-lg"></i></div>' +
+                        '<div class="flex-grow-1" style="min-width:0;">' +
+                            '<div class="fw-semibold" style="font-size:0.9rem;word-break:break-word;">' + escSess(s.device || 'Không rõ') +
+                                (s.current ? ' <span class="badge bg-success ms-1" style="font-size:0.68rem;">Thiết bị này</span>' : '') +
+                            '</div>' +
+                            '<div class="text-muted" style="font-size:0.78rem;">' +
+                                '<div><i class="fas fa-location-dot me-1"></i>IP: ' + escSess(s.ip || '--') + '</div>' +
+                                '<div><i class="fas fa-right-to-bracket me-1"></i>Đăng nhập: ' + escSess(fmtSessTime(s.created_at)) + '</div>' +
+                                '<div><i class="fas fa-clock me-1"></i>Hoạt động gần nhất: ' + escSess(fmtSessTime(s.last_active)) + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm flex-shrink-0" onclick="logoutSession(' + Number(s.id) + ',' + (s.current ? 'true' : 'false') + ')">Đăng xuất</button>' +
+                    '</div>';
+                }).join('');
+            } catch (e) {
+                box.innerHTML = '<div class="text-center text-danger py-3 small">Không tải được danh sách thiết bị.</div>';
+            }
+        }
+
+        async function logoutSession(id, isCurrent) {
+            var msg = isCurrent ? 'Đăng xuất khỏi thiết bị này? Bạn sẽ cần đăng nhập lại.' : 'Đăng xuất thiết bị này?';
+            if (!confirm(msg)) return;
+            try {
+                var r = await fetch('/api/sessions/' + id + '/logout', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                var data = await r.json();
+                if (!data.success) { alert(data.message || 'Có lỗi xảy ra.'); return; }
+                if (data.current) { window.location.href = '/login'; return; }
+                loadSessions();
+            } catch (e) { alert('Không thể kết nối máy chủ.'); }
+        }
+
+        async function logoutAllSessions() {
+            if (!confirm('Đăng xuất khỏi TẤT CẢ thiết bị (kể cả thiết bị này)? Bạn sẽ cần đăng nhập lại.')) return;
+            try {
+                var r = await fetch('/api/sessions/logout-all', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                var data = await r.json();
+                if (!data.success) { alert(data.message || 'Có lỗi xảy ra.'); return; }
+                window.location.href = '/login';
+            } catch (e) { alert('Không thể kết nối máy chủ.'); }
+        }
+
+        loadSessions();
     </script>
 
     <script>

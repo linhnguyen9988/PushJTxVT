@@ -195,6 +195,122 @@ db.query(`ALTER TABLE users ADD COLUMN totp_recovery_codes TEXT NULL`, (err) => 
     if (err && err.code !== 'ER_DUP_FIELDNAME') console.error('Lỗi thêm cột totp_recovery_codes:', err.message);
 });
 
+// ===================== QUẢN LÝ PHIÊN ĐĂNG NHẬP (SESSIONS) =====================
+db.query(`
+    CREATE TABLE IF NOT EXISTS user_token_state (
+        user_id INT NOT NULL PRIMARY KEY,
+        valid_after BIGINT NOT NULL DEFAULT 0
+    ) DEFAULT CHARSET=utf8mb4
+`, (err) => {
+    if (err) console.error('Lỗi tạo bảng user_token_state:', err.message);
+});
+db.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        sid CHAR(32) NOT NULL,
+        user_id INT NOT NULL,
+        ip VARCHAR(64) NULL,
+        user_agent VARCHAR(512) NULL,
+        device VARCHAR(255) NULL,
+        device_type VARCHAR(16) NOT NULL DEFAULT 'desktop',
+        login_via VARCHAR(8) NOT NULL DEFAULT 'web',
+        created_at DATETIME NOT NULL,
+        last_active DATETIME NOT NULL,
+        expires_at DATETIME NOT NULL,
+        UNIQUE KEY uq_sid (sid),
+        KEY idx_user (user_id)
+    ) DEFAULT CHARSET=utf8mb4
+`, (err) => {
+    if (err) console.error('Lỗi tạo bảng user_sessions:', err.message);
+});
+
+function getClientIp(req) {
+    let ip = (req.socket && req.socket.remoteAddress) || req.ip || '';
+    ip = String(ip).replace(/^::ffff:/, '');
+    if (ip === '::1') ip = '127.0.0.1';
+    return ip.slice(0, 64);
+}
+
+function parseUserAgent(ua) {
+    ua = String(ua || '');
+    let os = 'Không rõ', type = 'desktop', m;
+
+    if (/Windows NT 10/.test(ua)) os = 'Windows 10/11';
+    else if (/Windows NT 6\.3/.test(ua)) os = 'Windows 8.1';
+    else if (/Windows NT 6\.[12]/.test(ua)) os = 'Windows 7/8';
+    else if (/Windows/.test(ua)) os = 'Windows';
+    else if ((m = ua.match(/Android ([\d.]+)/))) { os = 'Android ' + m[1]; type = 'mobile'; }
+    else if (/iPad/.test(ua)) { os = 'iPadOS'; type = 'tablet'; }
+    else if (/iPhone|iPod/.test(ua)) { m = ua.match(/OS (\d+)[_.]/); os = 'iOS' + (m ? ' ' + m[1] : ''); type = 'mobile'; }
+    else if (/CrOS/.test(ua)) os = 'ChromeOS';
+    else if (/Mac OS X/.test(ua)) os = 'macOS';
+    else if (/Linux/.test(ua)) os = 'Linux';
+
+    let browser = 'Trình duyệt khác';
+    if ((m = ua.match(/Edg(?:e|A|iOS)?\/([\d.]+)/))) browser = 'Edge ' + m[1].split('.')[0];
+    else if ((m = ua.match(/OPR\/([\d.]+)/))) browser = 'Opera ' + m[1].split('.')[0];
+    else if ((m = ua.match(/SamsungBrowser\/([\d.]+)/))) browser = 'Samsung Internet ' + m[1].split('.')[0];
+    else if ((m = ua.match(/(?:Firefox|FxiOS)\/([\d.]+)/))) browser = 'Firefox ' + m[1].split('.')[0];
+    else if ((m = ua.match(/(?:Chrome|CriOS)\/([\d.]+)/))) browser = 'Chrome ' + m[1].split('.')[0];
+    else if (/Safari\//.test(ua) && (m = ua.match(/Version\/([\d.]+)/))) browser = 'Safari ' + m[1].split('.')[0];
+    else if (/okhttp|Dalvik|CFNetwork|Dart|Expo|ReactNative/i.test(ua)) { browser = 'Ứng dụng di động'; if (type === 'desktop') type = 'mobile'; }
+    else if (!ua) browser = 'Không rõ';
+
+    let model = '';
+    if ((m = ua.match(/Android [\d.]+; ([^;)]+)/)) && m[1].trim() !== 'K') model = m[1].trim();
+
+    const label = browser + ' · ' + os + (model ? ' (' + model + ')' : '');
+    return { label: label.slice(0, 255), type };
+}
+
+async function issueToken(req, payload, via) {
+    const sid = crypto.randomBytes(16).toString('hex');
+    try {
+        const ua = String(req.headers['user-agent'] || '').slice(0, 500);
+        const info = parseUserAgent(ua);
+        let device = info.label;
+        const custom = req.body && typeof req.body.deviceName === 'string' ? req.body.deviceName.trim().slice(0, 100) : '';
+        if (via === 'app' && custom) device = custom;
+        const now = new Date();
+        const expires = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+        await db.promise().query('DELETE FROM user_sessions WHERE user_id = ? AND expires_at < ?', [payload.userId, now]);
+        await db.promise().query(
+            `INSERT INTO user_sessions (sid, user_id, ip, user_agent, device, device_type, login_via, created_at, last_active, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [sid, payload.userId, getClientIp(req), ua, device, info.type, via, now, now, expires]
+        );
+        return jwt.sign({ ...payload, sid }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    } catch (e) {
+        console.error('Lỗi lưu phiên đăng nhập:', e.message);
+        return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    }
+}
+
+function checkTokenSession(req, decoded, cb) {
+    if (req._sessChecked !== undefined) return cb(req._sessChecked, req._sessErr);
+    const finish = (valid, err) => { req._sessChecked = valid; req._sessErr = err; cb(valid, err); };
+
+    if (decoded.sid) {
+        db.query('SELECT id FROM user_sessions WHERE sid = ? AND user_id = ? AND expires_at > ? LIMIT 1',
+            [decoded.sid, decoded.userId, new Date()], (err, rows) => {
+                if (err) return finish(false, err);
+                if (!rows.length) return finish(false);
+                db.query('UPDATE user_sessions SET last_active = ? WHERE sid = ? AND last_active < ?',
+                    [new Date(), decoded.sid, new Date(Date.now() - 60 * 1000)]);
+                finish(true);
+            });
+    } else {
+        db.query('SELECT valid_after FROM user_token_state WHERE user_id = ? LIMIT 1', [decoded.userId], (err, rows) => {
+            if (err) {
+                console.error('Lỗi kiểm tra token cũ:', err.message);
+                return finish(true);
+            }
+            const v = rows.length ? Number(rows[0].valid_after) : 0;
+            finish(!(v && decoded.iat <= v));
+        });
+    }
+}
+
 function generateRecoveryCodes(count = 8) {
     const charset = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     const codes = [];
@@ -329,12 +445,20 @@ app.use((req, res, next) => {
     if (token) {
         const decoded = verifyJWT(token);
         if (decoded) {
-            db.query('SELECT avatar FROM users WHERE username = ?', [decoded.username], (err, results) => {
-                if (err) return next();
-                res.locals.user = decoded.username;
-                res.locals.role = decoded.role;
-                res.locals.avatar = (results && results.length > 0 && results[0].avatar) ? results[0].avatar : '';
-                next();
+            checkTokenSession(req, decoded, (valid) => {
+                if (!valid) {
+                    res.locals.user = undefined;
+                    res.locals.role = undefined;
+                    res.locals.avatar = undefined;
+                    return next();
+                }
+                db.query('SELECT avatar FROM users WHERE username = ?', [decoded.username], (err, results) => {
+                    if (err) return next();
+                    res.locals.user = decoded.username;
+                    res.locals.role = decoded.role;
+                    res.locals.avatar = (results && results.length > 0 && results[0].avatar) ? results[0].avatar : '';
+                    next();
+                });
             });
             return;
         }
@@ -374,9 +498,28 @@ const isAuth = (req, res, next) => {
         try {
             const decoded = jwt.verify(token, JWT_SECRET);
             if (decoded && decoded.username) {
-                req.app_user = decoded.username;
-                req.app_role = decoded.role;
-                return next();
+                return checkTokenSession(req, decoded, (valid, dbErr) => {
+                    const apiStyle = req.xhr || req.path.startsWith('/api/');
+                    if (dbErr) {
+                        console.error('Lỗi kiểm tra phiên:', dbErr.message);
+                        return apiStyle
+                            ? res.status(500).json({ success: false, message: 'Lỗi hệ thống.' })
+                            : res.status(500).send('Lỗi hệ thống.');
+                    }
+                    if (!valid) {
+                        res.clearCookie('jwt_token');
+                        if (apiStyle) {
+                            return res.status(401).json({ success: false, message: 'Phiên đăng nhập đã bị đăng xuất, vui lòng đăng nhập lại!' });
+                        }
+                        req.flash('error_msg', 'Phiên đăng nhập đã bị đăng xuất, vui lòng đăng nhập lại.');
+                        return res.redirect('/login');
+                    }
+                    req.app_user = decoded.username;
+                    req.app_role = decoded.role;
+                    req.app_sid = decoded.sid || null;
+                    req.app_uid = decoded.userId || null;
+                    next();
+                });
             }
         } catch (e) {
             if (e.name === 'TokenExpiredError') {
@@ -416,7 +559,11 @@ const redirectIfLoggedIn = (req, res, next) => {
     if (token) {
         const decoded = verifyJWT(token);
         if (decoded) {
-            return res.redirect(decoded.role === 'admin' ? '/admin/dashboard' : '/orders');
+            return checkTokenSession(req, decoded, (valid) => {
+                if (valid) return res.redirect(decoded.role === 'admin' ? '/admin/dashboard' : '/orders');
+                res.clearCookie('jwt_token');
+                next();
+            });
         }
     }
     next();
@@ -488,7 +635,7 @@ app.post('/api/login', (req, res) => {
                     role: userRecord.role,
                     userId: userRecord.id
                 };
-                const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+                const token = await issueToken(req, payload, 'app');
 
                 createLog('Đã đăng nhập qua App Mobile', userRecord.username);
                 return res.json({
@@ -537,7 +684,7 @@ app.post('/api/login/2fa-verify', async (req, res) => {
         if (!ok) return res.status(400).json({ success: false, message: 'Mã 2FA không đúng.' });
 
         const payload = { username: userRecord.username, role: userRecord.role, userId: userRecord.id };
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+        const token = await issueToken(req, payload, 'app');
 
         createLog('Đã đăng nhập qua App Mobile (2FA)', userRecord.username);
         return res.json({
@@ -597,7 +744,7 @@ app.post('/login', (req, res) => {
                     role: userRecord.role,
                     userId: userRecord.id
                 };
-                const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+                const token = await issueToken(req, payload, 'web');
 
                 res.cookie('jwt_token', token, {
                     httpOnly: true,
@@ -645,7 +792,7 @@ app.post('/login/2fa', async (req, res) => {
         }
 
         const payload = { username: pending.username, role: pending.role, userId: pending.userId };
-        const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+        const token = await issueToken(req, payload, 'web');
         res.cookie('jwt_token', token, {
             httpOnly: true,
             secure: true,
@@ -697,7 +844,7 @@ app.post('/jtex', function (req, res) {
             120: "Kiện vấn đề (Hoàn)"
         };
         let currentTypeName = statusMapVn[details.scanTypeCode] || details.scanTypeName || "Hành trình mới";
-        if (currentTypeName == '中心到件') currentTypeName = 'Hàng đến kho TTKT';
+        if (currentTypeName == '中心到件') currentTypeName = 'Hàng đến TTKT';
         else if (currentTypeName == '取件失败') currentTypeName = 'Nhận hàng không thành công';
 
         let scanbyphone = details.staffContact || details.scanByContact || null;
@@ -925,6 +1072,70 @@ app.get('/profile', async (req, res) => {
     } catch (error) {
         console.error("Lỗi hệ thống tại route /profile:", error);
         res.status(500).send("Đã có lỗi xảy ra.");
+    }
+});
+
+app.get('/api/sessions', isAuth, async (req, res) => {
+    try {
+        const [rows] = await db.promise().query(
+            `SELECT id, sid, ip, device, device_type, login_via, created_at, last_active
+             FROM user_sessions WHERE user_id = ? AND expires_at > ? ORDER BY last_active DESC`,
+            [req.app_uid, new Date()]
+        );
+        res.json({
+            success: true,
+            sessions: rows.map(r => ({
+                id: r.id,
+                ip: r.ip,
+                device: r.device,
+                device_type: r.device_type,
+                login_via: r.login_via,
+                created_at: r.created_at,
+                last_active: r.last_active,
+                current: !!req.app_sid && r.sid === req.app_sid
+            })),
+            legacy: !req.app_sid
+        });
+    } catch (e) {
+        console.error('Lỗi lấy danh sách phiên:', e.message);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+    }
+});
+
+app.post('/api/sessions/logout-all', isAuth, async (req, res) => {
+    try {
+        await db.promise().query('DELETE FROM user_sessions WHERE user_id = ?', [req.app_uid]);
+        await db.promise().query(
+            'INSERT INTO user_token_state (user_id, valid_after) VALUES (?, ?) ON DUPLICATE KEY UPDATE valid_after = VALUES(valid_after)',
+            [req.app_uid, Math.floor(Date.now() / 1000)]
+        );
+        createLog('Đã đăng xuất tất cả thiết bị', req.app_user);
+        res.clearCookie('jwt_token');
+        res.clearCookie('rememberUser');
+        res.json({ success: true, current: true, message: 'Đã đăng xuất tất cả thiết bị.' });
+    } catch (e) {
+        console.error('Lỗi đăng xuất tất cả phiên:', e.message);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+    }
+});
+
+app.post('/api/sessions/:id/logout', isAuth, async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ success: false, message: 'ID không hợp lệ.' });
+    try {
+        const [rows] = await db.promise().query('SELECT sid, device, ip FROM user_sessions WHERE id = ? AND user_id = ?', [id, req.app_uid]);
+        if (!rows.length) return res.status(404).json({ success: false, message: 'Không tìm thấy phiên đăng nhập.' });
+        await db.promise().query('DELETE FROM user_sessions WHERE id = ? AND user_id = ?', [id, req.app_uid]);
+        const isCurrent = !!req.app_sid && rows[0].sid === req.app_sid;
+        createLog(`Đã đăng xuất thiết bị: ${rows[0].device || 'Không rõ'} (${rows[0].ip || '?'})`, req.app_user);
+        if (isCurrent) {
+            res.clearCookie('jwt_token');
+            res.clearCookie('rememberUser');
+        }
+        res.json({ success: true, current: isCurrent });
+    } catch (e) {
+        console.error('Lỗi đăng xuất phiên:', e.message);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
     }
 });
 
@@ -4242,9 +4453,21 @@ app.post('/api/orders/mark-printed', isAuth, async (req, res) => {
 });
 
 app.get('/logout', (req, res) => {
-    res.clearCookie('jwt_token');
-    res.clearCookie('rememberUser');
-    res.redirect('/login');
+    const token = req.cookies && req.cookies.jwt_token;
+    const decoded = token ? verifyJWT(token) : null;
+    const done = () => {
+        res.clearCookie('jwt_token');
+        res.clearCookie('rememberUser');
+        res.redirect('/login');
+    };
+    if (decoded && decoded.sid) {
+        db.query('DELETE FROM user_sessions WHERE sid = ?', [decoded.sid], (err) => {
+            if (err) console.error('Lỗi xóa phiên khi đăng xuất:', err.message);
+            done();
+        });
+    } else {
+        done();
+    }
 });
 httpServer.listen(80, () => {
     console.log('HTTP: 80');
