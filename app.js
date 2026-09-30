@@ -1574,6 +1574,7 @@ function applyAddressFixes(sWard, sDist) {
     if (sDist === 'phú lộc' && sWard === 'khe tre') sDist = 'nam đông';
     if (sDist === 'phú lộc' && sWard === 'thượng nhật') sDist = 'nam đông';
     if (sDist === 'cẩm phả' && sWard === 'hải hòa') sWard = 'cẩm hải';
+    if (sDist === 'tứ kỳ' && sWard === 'dân an') sWard = 'Dân Chủ';
     if (sDist === 'phú lộc' && sWard === 'hương phú') sDist = 'nam đông';
     if (sDist === 'nam định' && sWard === 'mỹ lộc') { sDist = 'mỹ lộc'; sWard = 'mỹ tiến'; }
     if (sDist === 'xuân trường' && sWard === 'xuân giang') sWard = 'xuân đài';
