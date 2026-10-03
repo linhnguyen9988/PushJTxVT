@@ -493,6 +493,15 @@
               <span class="slider"></span>
             </label>
           </div>
+          <div class="reg-lock-row" style="margin-top:10px;padding-top:12px;border-top:1px solid var(--border);">
+            <div>
+              <div class="lbl">Tuyến Biên Hòa</div>
+              <div class="sub">Bật/tắt tuyến nội bộ theo từng phường của TP Biên Hòa</div>
+            </div>
+            <button type="button" class="btn-ghost" id="btnBhRoutes" onclick="openBhRoutesModal()" <%= currentRole === 'admin' ? '' : 'disabled' %>>
+              <i class="fas fa-route"></i> Tuyến Biên Hòa
+            </button>
+          </div>
         </div>
       </div>
 
@@ -807,6 +816,30 @@
   </div>
 </div>
 
+<div id="bh-routes-modal"
+  style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;width:460px;max-width:94%;max-height:90vh;display:flex;flex-direction:column;">
+    <h5 style="font-weight:700;color:var(--text);margin-bottom:4px;"><i class="fas fa-route me-2" style="color:var(--accent2)"></i>Tuyến Biên Hòa</h5>
+    <div style="color:var(--muted);font-size:.78rem;margin-bottom:12px;">Phường đang <b>bật</b>: đơn J&amp;T sẽ lên thành đơn nội bộ. Phường <b>tắt</b>: đẩy đơn bình thường.</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+      <span id="bh-routes-count" style="color:var(--muted);font-size:.78rem;"></span>
+      <span style="display:flex;gap:6px;">
+        <button type="button" class="btn-ghost" style="padding:4px 10px;font-size:.75rem;" onclick="bhSetAll(true)">Bật tất cả</button>
+        <button type="button" class="btn-ghost" style="padding:4px 10px;font-size:.75rem;" onclick="bhSetAll(false)">Tắt tất cả</button>
+      </span>
+    </div>
+    <div id="bh-routes-list" style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:8px;padding:2px 12px;min-height:120px;">
+      <div style="color:var(--muted);padding:16px 0;text-align:center;">Đang tải...</div>
+    </div>
+    <div class="d-flex gap-2 mt-3">
+      <button type="button" class="btn btn-light flex-grow-1" onclick="closeBhRoutesModal()">Hủy</button>
+      <button type="button" class="btn-accent flex-grow-1" id="bh-routes-save" onclick="saveBhRoutes()">
+        <i class="fas fa-save me-1"></i> Lưu
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="admin-2fa-modal"
   style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center;">
   <div class="bg-white p-4 rounded shadow-lg text-start" style="width:360px;max-width:92%;">
@@ -928,6 +961,84 @@
       showNotice("Lỗi", "Lỗi kết nối server.", "danger");
     } finally {
       checkbox.disabled = (CURRENT_ROLE !== 'admin');
+    }
+  }
+
+  let bhWardsOriginal = [];
+  function bhEsc(t) { return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function bhUpdateCount() {
+    const boxes = document.querySelectorAll('#bh-routes-list input[type=checkbox]');
+    const on = Array.from(boxes).filter(b => b.checked).length;
+    document.getElementById('bh-routes-count').textContent = boxes.length ? `Đang bật ${on}/${boxes.length} phường` : '';
+  }
+  function bhSetAll(v) {
+    document.querySelectorAll('#bh-routes-list input[type=checkbox]').forEach(b => b.checked = v);
+    bhUpdateCount();
+  }
+  async function openBhRoutesModal() {
+    document.getElementById('bh-routes-modal').style.display = 'flex';
+    const list = document.getElementById('bh-routes-list');
+    list.innerHTML = '<div style="color:var(--muted);padding:16px 0;text-align:center;">Đang tải...</div>';
+    try {
+      const res = await fetch('/admin/bienhoa-wards');
+      const result = await res.json();
+      if (!result.success) throw new Error(result.message || 'Không tải được danh sách phường.');
+      bhWardsOriginal = result.wards;
+      list.innerHTML = result.wards.map(w => `
+        <div class="reg-lock-row" style="padding:10px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <div class="lbl">${bhEsc(w.name)}</div>
+            ${w.new_ward ? `<div class="sub">Nay thuộc ${bhEsc(w.new_ward)}</div>` : ''}
+          </div>
+          <label class="adm-switch">
+            <input type="checkbox" data-id="${w.id}" ${w.is_open ? 'checked' : ''} onchange="bhUpdateCount()">
+            <span class="slider"></span>
+          </label>
+        </div>`).join('') || '<div style="color:var(--muted);padding:16px 0;text-align:center;">Chưa có dữ liệu phường.</div>';
+      bhUpdateCount();
+    } catch (e) {
+      list.innerHTML = `<div style="color:var(--accent2);padding:16px 0;text-align:center;">${bhEsc(e.message || 'Lỗi kết nối server.')}</div>`;
+    }
+  }
+  function closeBhRoutesModal() {
+    document.getElementById('bh-routes-modal').style.display = 'none';
+  }
+  async function saveBhRoutes() {
+    const boxes = Array.from(document.querySelectorAll('#bh-routes-list input[type=checkbox]'));
+    if (!boxes.length) return;
+    const wards = boxes.map(b => ({ id: Number(b.dataset.id), is_open: b.checked }));
+    const changed = wards.filter(w => {
+      const o = bhWardsOriginal.find(x => x.id === w.id);
+      return o && o.is_open !== w.is_open;
+    });
+    if (!changed.length) { showNotice('Thông báo', 'Bạn chưa thay đổi phường nào.', 'warning'); return; }
+
+    if (!ADMIN_2FA_ENABLED) {
+      showNotice('Cần bật 2FA', 'Bạn cần bật Xác thực 2 lớp (2FA) trong Trang cá nhân trước khi thay đổi tuyến Biên Hòa.', 'warning');
+      return;
+    }
+    const totpCode = await open2FAModal();
+    if (!totpCode) return;
+
+    const btn = document.getElementById('bh-routes-save');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/admin/bienhoa-wards/save', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wards, totpCode })
+      });
+      const result = await res.json();
+      if (result.success) {
+        closeBhRoutesModal();
+        showNotice('Thành công', 'Đã cập nhật tuyến Biên Hòa.', 'success');
+      } else {
+        showNotice('Lỗi', result.message || 'Không thể lưu thay đổi.', 'danger');
+      }
+    } catch (e) {
+      showNotice('Lỗi', 'Lỗi kết nối server.', 'danger');
+    } finally {
+      btn.disabled = false;
     }
   }
 

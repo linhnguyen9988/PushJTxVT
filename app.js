@@ -183,6 +183,76 @@ function getRegistrationLocked(cb) {
     });
 }
 
+const BIEN_HOA_WARDS_SEED = [
+    ["251TPB01", "Phường An Bình", "Phường Trấn Biên", 1],
+    ["251TPB02", "Phường Bình Đa", "Phường Tam Hiệp", 1],
+    ["251TPB03", "Phường Bửu Hòa", "Phường Biên Hòa", 1],
+    ["251TPB04", "Phường Bửu Long", "Phường Trấn Biên", 1],
+    ["251TPB05", "Phường Hòa Bình", "Phường Trấn Biên", 0],
+    ["251TPB06", "Phường Hố Nai", "Phường Long Bình", 1],
+    ["251TPB07", "Phường Long Bình", "Phường Long Bình", 1],
+    ["251TPB08", "Phường Long Bình Tân", "Phường Long Hưng", 0],
+    ["251TPB09", "Phường Quang Vinh", "Phường Trấn Biên", 1],
+    ["251TPB10", "Phường Quyết Thắng", "Phường Trấn Biên", 1],
+    ["251TPB11", "Phường Tam Hiệp", "Phường Tam hiệp", 1],
+    ["251TPB12", "Phường Tam Hòa", "Phường Tam Hiệp", 1],
+    ["251TPB13", "Phường Tân Biên", "Phường Long Bình", 1],
+    ["251TPB14", "Phường Tân Hiệp", "Phường Tam hiệp", 1],
+    ["251TPB15", "Phường Tân Hòa", "Phường Hố Nai", 1],
+    ["251TPB16", "Phường Tân Mai", "Phường Tam Hiệp", 1],
+    ["251TPB17", "Phường Tân Phong", "Phường Tân Triều", 0],
+    ["251TPB18", "Phường Tân Tiến", "Phường Tam Hiệp", 1],
+    ["251TPB19", "Phường Tân Vạn", "Phường Biên Hòa", 0],
+    ["251TPB20", "Phường Thanh Bình", "Phường Trấn Biên", 0],
+    ["251TPB21", "Phường Thống Nhất", "Phường Trấn Biên", 1],
+    ["251TPB22", "Phường Trảng Dài", "Phường Trảng Dài", 1],
+    ["251TPB23", "Phường Trung Dũng", "Phường Trấn Biên", 0],
+    ["251TPB24", "Xã An Hòa", "Phường Long Hưng", 0],
+    ["251TPB25", "Xã Hiệp Hòa", "Phường Trấn Biên", 1],
+    ["251TPB26", "Xã Hóa An", "Phường Biên Hòa", 1],
+    ["251TPB27", "Xã Long Hưng", "Phường Long Hưng", 0],
+    ["251TPB28", "Xã Phước Tân", "Phường Phước Tân", 0],
+    ["251TPB29", "Xã Tam Phước", "Phường Tam Phước", 0],
+    ["251TPB30", "Xã Tân Hạnh", "Phường Biên Hòa", 0],
+    ["251TPB31", "Phường An Hòa", "Phường Long Hưng", 0],
+    ["251TPB32", "Phường Hiệp Hòa", "Phường Trấn Biên", 1],
+    ["251TPB33", "Phường Hóa An", "Phường Biên Hòa", 1],
+    ["251TPB34", "Phường Phước Tân", "Phường Phước Tân", 0],
+    ["251TPB35", "Phường Tam Phước", "Phường Tam Phước", 0],
+    ["251TPB36", "Phường Tân Hạnh", "Phường Biên Hòa", 0]
+];
+
+db.query(`
+    CREATE TABLE IF NOT EXISTS bienhoa_route_wards (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ward_code VARCHAR(30) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        new_ward VARCHAR(100) NULL,
+        is_open TINYINT(1) NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_bienhoa_ward_code (ward_code)
+    ) CHARACTER SET utf8mb4
+`, (err) => {
+    if (err) return console.error('Lỗi tạo bảng bienhoa_route_wards:', err.message);
+    db.query('INSERT IGNORE INTO bienhoa_route_wards (ward_code, name, new_ward, is_open) VALUES ?', [BIEN_HOA_WARDS_SEED], (e2) => {
+        if (e2) console.error('Lỗi seed bienhoa_route_wards:', e2.message);
+    });
+});
+
+function extractWardCode(ward) {
+    const m = (ward || '').toString().match(/-\s*(\d+TPB\d+)\s*$/i);
+    return m ? m[1].toUpperCase() : null;
+}
+
+async function isBienHoaWardOpen(ward, district) {
+    const d = (district || '').toString().toLowerCase().normalize('NFC').replace(/oà/g, 'òa');
+    if (!d.includes('biên hòa')) return false;
+    const code = extractWardCode(ward);
+    if (!code) return false;
+    const [rows] = await db.promise().query('SELECT is_open FROM bienhoa_route_wards WHERE ward_code = ? LIMIT 1', [code]);
+    return rows.length > 0 && !!rows[0].is_open;
+}
+
 const APP_2FA_ISSUER = 'TV Ship';
 
 db.query(`ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL`, (err) => {
@@ -195,7 +265,6 @@ db.query(`ALTER TABLE users ADD COLUMN totp_recovery_codes TEXT NULL`, (err) => 
     if (err && err.code !== 'ER_DUP_FIELDNAME') console.error('Lỗi thêm cột totp_recovery_codes:', err.message);
 });
 
-// ===================== QUẢN LÝ PHIÊN ĐĂNG NHẬP (SESSIONS) =====================
 db.query(`
     CREATE TABLE IF NOT EXISTS user_token_state (
         user_id INT NOT NULL PRIMARY KEY,
@@ -996,6 +1065,54 @@ app.post('/admin/toggle-registration-lock', isAdmin, require2FA, (req, res) => {
     });
 });
 
+app.get('/admin/bienhoa-wards', isAdmin, (req, res) => {
+    db.query('SELECT id, name, new_ward, is_open FROM bienhoa_route_wards ORDER BY ward_code', (err, rows) => {
+        if (err) {
+            console.error('Lỗi lấy danh sách phường Biên Hòa:', err.message);
+            return res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+        }
+        res.json({ success: true, wards: rows.map(r => ({ id: r.id, name: r.name, new_ward: r.new_ward, is_open: !!r.is_open })) });
+    });
+});
+
+app.post('/admin/bienhoa-wards/save', isAdmin, require2FA, async (req, res) => {
+    const wards = Array.isArray(req.body.wards) ? req.body.wards : null;
+    if (!wards) return res.status(400).json({ success: false, message: 'Dữ liệu không hợp lệ.' });
+
+    const conn = await db.promise().getConnection();
+    try {
+        const [current] = await conn.query('SELECT id, name, is_open FROM bienhoa_route_wards');
+        const currentMap = new Map(current.map(r => [Number(r.id), r]));
+        const opened = [], closed = [];
+
+        await conn.beginTransaction();
+        for (const w of wards) {
+            const id = Number(w.id);
+            const row = currentMap.get(id);
+            if (!row) continue;
+            const next = w.is_open ? 1 : 0;
+            if (next === (row.is_open ? 1 : 0)) continue;
+            await conn.query('UPDATE bienhoa_route_wards SET is_open = ? WHERE id = ?', [next, id]);
+            (next ? opened : closed).push(row.name);
+        }
+        await conn.commit();
+
+        if (opened.length || closed.length) {
+            const parts = [];
+            if (opened.length) parts.push(`Mở tuyến: ${opened.join(', ')}`);
+            if (closed.length) parts.push(`Tắt tuyến: ${closed.join(', ')}`);
+            createLog(`Cập nhật tuyến Biên Hòa - ${parts.join(' | ')}`, req.app_user);
+        }
+        res.json({ success: true, opened: opened.length, closed: closed.length });
+    } catch (e) {
+        try { await conn.rollback(); } catch (_) { }
+        console.error('Lỗi lưu tuyến Biên Hòa:', e.message);
+        res.status(500).json({ success: false, message: 'Lỗi hệ thống.' });
+    } finally {
+        conn.release();
+    }
+});
+
 app.get('/profile', async (req, res) => {
     if (!req.app_user) return res.redirect('/login');
 
@@ -1562,6 +1679,7 @@ function applyAddressFixes(sWard, sDist) {
     if (sDist === 'sơn dương' && sWard === 'hồng sơn') sWard = 'hồng lạc';
     if (sDist === 'hớn quản' && sWard === "tân quang") sWard = 'tân quan';
     if (sDist === 'cư mgar' && sWard === "cư m'ga") sWard = 'cư mgar';
+    if (sDist === 'chũ' && sWard === 'trù hựu') sDist = 'lục ngạn';
     if (sDist === 'chũ' && sWard === 'quý sơn') sDist = 'lục ngạn';
     if (sDist === 'chũ' && sWard === 'chũ') sDist = 'lục ngạn';
     if (sDist === 'chũ' && sWard === 'thanh hải') sDist = 'lục ngạn';
@@ -1626,6 +1744,7 @@ function cleanSearchTerm(str) {
         .replace('.', '')
         .replace('lương thế chân', 'lương thế trân')
         .replace('đăk drong', 'Đăk Đrông')
+        .replace('đăk taley', 'đăk ta ley')
         .replace('đakpơ', 'Đak Pơ')
         .replace('cư ê wi', 'cư êwi')
         .replace('lộc thạch', 'Lộc Thạnh')
@@ -2605,34 +2724,11 @@ app.post('/api/orders/create', isAuth, async (req, res) => {
             }
 
         } else if (provider === 'J&T') {// check kho jt trước khi cho đẩy đơn
-            /*const NB_BIEN_HOA_WARDS = [
-                'an bình', 'tam hiệp', 'bình đa', 'tân hiệp', 'tân mai',
-                'tân tiến', 'tân biên', 'hố nai', 'hoá an', 'hóa an',
-                'bửu hoà', 'bửu hòa', 'bửu long', 'quang vinh', 'quyết thắng',
-                'hiệp hoà', 'hiệp hòa', 'trảng dài', 'long bình', 'tân hòa', 'tân hoà'
-            ];*/
-            const NB_BIEN_HOA_WARDS = [
-                'an bình', 'tam hiệp', 'bình đa', 'tân hiệp', 'tân mai',
-                'tân tiến', 'tân biên', 'hố nai', 'hoá an', 'hóa an',
-                'bửu hoà', 'bửu hòa', 'bửu long', 'quang vinh', 'quyết thắng',
-                'hiệp hoà', 'hiệp hòa', 'trảng dài', 'long bình', 'tân hòa', 'tân hoà',
-                'tam hoà', 'tam hòa', 'thống nhất'
-            ];
-
-            function normalizeWardNB(s) {
-                return (s || '').toLowerCase().normalize('NFC')
-                    .replace(/phường|xã|thị trấn/gi, '').trim();
-            }
-
-            const wardNormNB = normalizeWardNB(ward);
-            const districtNormNB = normalizeWardNB(district);
-            const isNBWard = NB_BIEN_HOA_WARDS.some(w => wardNormNB.includes(w) || w.includes(wardNormNB));
-            const isNBDistrict = districtNormNB.includes('biên hòa') || districtNormNB.includes('biên hoà');
-            const enable = true;
-            if (enable && isNBWard && isNBDistrict && ward != 'Phường Long Bình Tân-251TPB08') {
+            const isNBWardOpen = await isBienHoaWardOpen(ward, district);
+            if (isNBWardOpen) {
                 const maNB = 'BH' + Date.now();
-                const sqlNBOrder = `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
-                await db.promise().query(sqlNBOrder, [user.id, maNB, 'NB', customer_name, customer_phone, address, product_name, cod, calculatedFee, weight, 'pending', null, cod, ward, district, province, 'NB-TVSHIP-BH', note]);
+                const sqlNBOrder = `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, newward, newprov, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
+                await db.promise().query(sqlNBOrder, [user.id, maNB, 'NB', customer_name, customer_phone, address, product_name, cod, calculatedFee, weight, 'pending', null, cod, ward, district, province, 'NB-TVSHIP-BH', note, newward, newprov]);
                 return res.json({ success: true, message: `✅ Địa chỉ nội thành Biên Hòa — tự động chuyển sang đơn Nội Bộ`, order_code: maNB });
             }
 
@@ -2687,7 +2783,8 @@ app.post('/api/orders/create', isAuth, async (req, res) => {
             if (body.msg === 'success') {
                 const sqlOrder = `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, newward, newprov, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
                 await db.promise().query(sqlOrder, [user.id, matuquan, provider, customer_name, customer_phone, address, product_name, cod, calculatedFee, weight, 'pending', body.data.billCode, cod, ward, district, province, body.data.sortLine, note, newward, newprov]);
-                GetBillJT(matuquan);
+                //GetBillJT(matuquan);//tạm thời ko lấy bill lưu vào DB, bill nó quá nặng
+                console.log(`✅${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}: ${jt_shopname} Lên đơn J&T thành công: ${body.data.billCode}`);
                 return res.json({ success: true, message: "Lên đơn J&T thành công", order_code: body.data.billCode });
             } else {
                 return res.json({ success: false, message: "J&T từ chối: " + body.msg });
@@ -2700,7 +2797,7 @@ app.post('/api/orders/create', isAuth, async (req, res) => {
                 "payment_type_id": 1, //1 là người gửi trả cước, 2 là người nhận
                 "note": note || "Không cho xem hàng!",
                 "required_note": "KHONGCHOXEMHANG",
-                "return_phone": user.vtp_shop_phone || "0332190158", // Tận dụng phone shop có sẵn
+                "return_phone": user.vtp_shop_phone || "0332190158",
                 "return_address": user.vtp_shop_address || "39 NTT",
                 "from_name": user.vtp_shop_name || "TinTest124",
                 "from_phone": user.vtp_shop_phone || "0987654321",
@@ -3228,7 +3325,6 @@ app.post('/api/orders/cancel', isAuth, async (req, res) => {
         if (provider === "NB") {
             if (role !== 'admin') return res.status(403).json({ success: false, message: "Chỉ Admin mới được hủy đơn nội bộ!" });
 
-            // Chỉ cho hủy khi đơn đang ở trạng thái Chờ lấy hàng
             const [nbRows] = await db.promise().query('SELECT status FROM orders WHERE order_code = ?', [order_code]);
             if (nbRows.length === 0) return res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng!" });
             if (nbRows[0].status !== 'pending') {
