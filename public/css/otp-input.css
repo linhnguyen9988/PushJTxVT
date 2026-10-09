@@ -1,0 +1,34 @@
+/* OtpInput – 6 ô nhập mã 2FA */
+.otp-group { display: flex; justify-content: center; gap: 8px; }
+.otp-group .otp-box:nth-child(4) { margin-left: 8px; } /* tách 3 + 3 cho dễ nhìn */
+
+.otp-box {
+    flex: 1 1 0; min-width: 0; max-width: 52px; height: 56px; padding: 0;
+    text-align: center; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--ink-900, var(--bs-body-color));
+    background: var(--surface-card, var(--bs-body-bg));
+    border: 1.5px solid var(--bs-border-color); border-radius: 12px;
+    caret-color: var(--bs-primary);
+    transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+.otp-box:focus { outline: 0; border-color: var(--bs-primary); box-shadow: 0 0 0 .25rem rgba(var(--bs-primary-rgb, 13, 110, 253), .18); }
+.otp-box.filled { border-color: rgba(var(--bs-primary-rgb, 13, 110, 253), .55); }
+.otp-box.error { border-color: var(--bs-danger); background: rgba(220, 53, 69, .06); }
+.otp-box:disabled { opacity: .6; }
+.otp-box.pop { animation: otpPop .18s ease-out; }
+.otp-group.shake { animation: otpShake .35s ease-in-out; }
+
+.otp-paste-slot { min-height: 2.25rem; margin: .9rem 0 .35rem; }
+.otp-toggle-wrap { margin-top: .25rem; }
+.otp-toggle { font-size: .8rem; }
+.otp-pane-recovery .form-control { letter-spacing: 3px; font-weight: 700; }
+
+/* Bản nhỏ dùng trong modal */
+.otp--sm .otp-group { gap: 6px; }
+.otp--sm .otp-group .otp-box:nth-child(4) { margin-left: 6px; }
+.otp--sm .otp-box { height: 46px; max-width: 46px; font-size: 1.25rem; border-radius: 10px; }
+.otp--sm .otp-paste-slot { min-height: 2rem; margin: .6rem 0 .2rem; }
+
+@keyframes otpPop { 0% { transform: scale(.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes otpShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+@media (prefers-reduced-motion: reduce) { .otp-box.pop, .otp-group.shake { animation: none; } }

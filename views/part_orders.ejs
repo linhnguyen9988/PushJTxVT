@@ -1,0 +1,258 @@
+<%- include('partials/header') %>
+<%- include('partials/admin_theme') %>
+<%
+var statusMap = {
+    'pending':          { text: 'Chờ lấy hàng', class: 'bg-warning-subtle text-warning-emphasis border border-warning' },
+    'cancel':           { text: 'Đã hủy đơn',   class: 'bg-secondary-subtle text-secondary border border-secondary' },
+    'picked_up':        { text: 'Đã lấy hàng',  class: 'bg-info-subtle text-info-emphasis border border-info' },
+    'delivering':       { text: 'Đang vận chuyển', class: 'bg-primary-subtle text-primary border border-primary badge-original-blue' },
+    'out_for_delivery': { text: 'Đang giao hàng', class: 'bg-primary border text-white badge-original-blue' },
+    'completed':        { text: 'Thành công',    class: 'bg-success-subtle text-success border border-success' },
+    'returning':        { text: 'Đang hoàn', class: 'bg-danger-subtle text-danger border border-danger' },
+    'returned':         { text: 'Đã hoàn hàng',  class: 'bg-dark-subtle text-dark border border-dark' },
+    'issue':            { text: 'Kiện vấn đề',   class: 'bg-danger text-white border border-danger' }
+};
+function getBadge(st) {
+    var s = st ? String(st).toLowerCase() : '';
+    return statusMap[s] || { text: st || 'N/A', class: 'bg-light text-dark border' };
+}
+function tabHref(st) {
+    return '/part-orders?status=' + encodeURIComponent(st) + '&search=' + encodeURIComponent(search) +
+           '&startDate=' + encodeURIComponent(startDate) + '&endDate=' + encodeURIComponent(endDate);
+}
+var tabs = [
+    { key: '',                 label: 'Tất cả',     count: counts.total },
+    { key: 'shipping',         label: 'Đang vận chuyển', count: counts.shipping },
+    { key: 'out_for_delivery', label: 'Đang giao',  count: counts.delivery },
+    { key: 'completed',        label: 'Thành công', count: counts.completed },
+    { key: 'returned',         label: 'Hoàn',       count: counts.returned },
+    { key: 'issue',            label: 'Vấn đề',     count: counts.issue }
+];
+%>
+<div class="container-fluid px-md-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="page-title-adm mb-0"><span class="ic">↩️</span> Đơn giao 1 phần</h4>
+    </div>
+
+    <form method="get" action="/part-orders" class="row g-2 mb-3">
+        <% if (status) { %><input type="hidden" name="status" value="<%= status %>"><% } %>
+        <div class="col-12 col-md-4">
+            <input type="text" name="search" class="form-control form-control-sm" placeholder="Mã đơn, mã gốc, tên, SĐT..." value="<%= search %>">
+        </div>
+        <div class="col-6 col-md-2"><input type="date" name="startDate" class="form-control form-control-sm" value="<%= startDate %>"></div>
+        <div class="col-6 col-md-2"><input type="date" name="endDate" class="form-control form-control-sm" value="<%= endDate %>"></div>
+        <div class="col-12 col-md-4 d-flex gap-2">
+            <button class="btn btn-primary btn-sm px-3" type="submit"><i class="fas fa-search me-1"></i>Tìm</button>
+            <a href="/part-orders" class="btn btn-outline-secondary btn-sm">Xóa lọc</a>
+        </div>
+    </form>
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <% tabs.forEach(function (t) { %>
+            <a href="<%= tabHref(t.key) %>"
+               class="btn btn-sm <%= status === t.key ? 'btn-primary' : 'btn-outline-primary' %>">
+                <%= t.label %> (<%= Number(t.count || 0) %>)
+            </a>
+        <% }) %>
+    </div>
+
+    <div class="table-responsive shadow-sm" style="background: var(--surface-card); border-radius: 12px;">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Mã đơn hoàn</th>
+                    <th class="d-none d-md-table-cell">Mã đơn gốc</th>
+                    <th>Khách hàng</th>
+                    <th class="d-none d-md-table-cell">Hàng hóa</th>
+                    <th>Trạng thái</th>
+                    <th class="d-none d-md-table-cell">Ngày tạo</th>
+                </tr>
+            </thead>
+            <tbody>
+            <% if (!orders.length) { %>
+                <tr><td colspan="6" class="text-center text-muted py-5">Chưa có đơn giao 1 phần nào.</td></tr>
+            <% } %>
+            <% orders.forEach(function (o) {
+                var code = o.realjtbillcode || o.order_code;
+                var parent = o.parent_billcode;
+                var info = getBadge(o.status);
+            %>
+                <tr style="cursor:pointer" onclick="openPartJourney('<%= parent %>')">
+                    <td>
+                        <div class="fw-bold text-primary">📦 <%= code %>
+                            <i class="far fa-copy ms-1" onclick="event.stopPropagation(); copyCode('<%= code %>', this)"></i>
+                        </div>
+                        <% if (o.issue) { %>
+                            <div class="small text-danger"><i class="fas fa-exclamation-circle"></i> <%= o.issue %></div>
+                        <% } %>
+                    </td>
+                    <td class="d-none d-md-table-cell"><%= parent %></td>
+                    <td>
+                        <div class="fw-semibold"><%= o.customer_name %></div>
+                        <div class="small text-muted"><%= o.customer_phone %></div>
+                    </td>
+                    <td class="d-none d-md-table-cell">
+                        <%= o.product_name %> x <%= Number(o.weight).toLocaleString() %> KG
+                    </td>
+                    <td>
+                        <span class="badge rounded-pill <%= info.class %>" data-billcode="<%= code %>"
+                              style="font-size:0.7rem; padding:0.4em 0.8em;"><%= info.text %></span>
+                    </td>
+                    <td class="d-none d-md-table-cell small text-muted">
+                        <%= new Date(o.created_at).toLocaleString('vi-VN') %>
+                    </td>
+                </tr>
+            <% }) %>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="jtTrackingPopup" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title"><i class="fas fa-route text-primary me-2"></i>Mã đơn: <span id="jtTrackingBillCode"></span></h5>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="close-modal" onclick="closeJtTrackingPopup()">×</button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div id="jtTrackingTimeline" class="tracking-timeline"></div>
+        </div>
+    </div>
+</div>
+
+<div id="trackingLightbox" class="img-lightbox-overlay" onclick="closeTrackingLightbox()">
+    <button type="button" class="lightbox-close" onclick="closeTrackingLightbox()">&times;</button>
+    <div id="trackingLightboxNav" class="lightbox-nav">
+        <button type="button" class="lightbox-arrow lightbox-prev" onclick="lightboxPrev(event)"><i class="fas fa-chevron-left"></i></button>
+        <button type="button" class="lightbox-arrow lightbox-next" onclick="lightboxNext(event)"><i class="fas fa-chevron-right"></i></button>
+    </div>
+    <img id="trackingLightboxImg" src="" onclick="event.stopPropagation()" alt="Ảnh hành trình">
+    <div id="trackingLightboxCounter" class="lightbox-counter"></div>
+</div>
+
+<script>
+    const clientStatusMap = {
+        'pending':          { text: 'Chờ lấy hàng', class: 'bg-warning-subtle text-warning-emphasis border border-warning' },
+        'cancel':           { text: 'Đã hủy đơn',   class: 'bg-secondary-subtle text-secondary border border-secondary' },
+        'picked_up':        { text: 'Đã lấy hàng',  class: 'bg-info-subtle text-info-emphasis border border-info' },
+        'delivering':       { text: 'Đang vận chuyển', class: 'bg-primary-subtle text-primary border border-primary badge-original-blue' },
+        'out_for_delivery': { text: 'Đang giao hàng', class: 'bg-primary border text-white badge-original-blue' },
+        'completed':        { text: 'Thành công',    class: 'bg-success-subtle text-success border border-success' },
+        'returning':        { text: 'Đang hoàn', class: 'bg-danger-subtle text-danger border border-danger' },
+        'returned':         { text: 'Đã hoàn hàng',  class: 'bg-dark-subtle text-dark border border-dark' },
+        'issue':            { text: 'Kiện vấn đề',   class: 'bg-danger text-white border border-danger' }
+    };
+    let __trackingPhotoSets = [];
+    let __lightboxImages = [];
+    let __lightboxIndex = 0;
+
+    function esc(v) {
+        return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function copyCode(text, el) {
+        if (navigator.clipboard) navigator.clipboard.writeText(text);
+        if (el) { el.classList.replace('far', 'fas'); setTimeout(() => el.classList.replace('fas', 'far'), 1000); }
+    }
+
+    function formatVNTime(dateString) {
+        if (!dateString) return '';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return dateString;
+        const p = n => String(n).padStart(2, '0');
+        return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} - ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
+    }
+
+    function updateOrderStatusBadge(billCode, status) {
+        const info = clientStatusMap[status];
+        if (!billCode || !info) return;
+        document.querySelectorAll(`.badge[data-billcode="${CSS.escape(billCode)}"]`).forEach(el => {
+            el.className = `badge rounded-pill ${info.class}`;
+            el.style.fontSize = '0.7rem';
+            el.innerText = info.text;
+        });
+    }
+
+    function renderJtImages(sigpicRaw) {
+        if (!sigpicRaw) return '';
+        let pics = [];
+        try {
+            const parsed = JSON.parse(sigpicRaw);
+            pics = Array.isArray(parsed) ? parsed : [parsed];
+        } catch (e) { pics = [sigpicRaw]; }
+        pics = pics.filter(u => typeof u === 'string' && u.trim() !== '');
+        if (!pics.length) return '';
+        const setIdx = __trackingPhotoSets.push(pics) - 1;
+        return `<div class="tracking-photo-wrap" onclick="openTrackingLightbox(${setIdx})">
+            <img src="${esc(pics[0])}" class="tracking-photo-thumb" loading="lazy" alt="Ảnh hành trình">
+            ${pics.length > 1 ? `<span class="tracking-photo-count"><i class="fas fa-images"></i> ${pics.length}</span>` : ''}
+        </div>`;
+    }
+
+    function buildJtTimelineHtml(trackingData) {
+        __trackingPhotoSets = [];
+        if (!trackingData || !trackingData.length) {
+            return `<div class="text-center py-5"><p class="text-muted">Không tìm thấy lịch sử hành trình chi tiết.</p></div>`;
+        }
+        return trackingData.map((item, idx) => {
+            const status = item.scantypename || 'Cập nhật hành trình';
+            const issue = item.issuename != null ? ' - ' + item.issuename : '';
+            const isWarning = status.includes('hủy') || status.includes('vấn đề') || status.includes('取消');
+            const addr = [item.scanpost, item.scanward, item.scancity, item.scanprov]
+                .filter(x => x && String(x).trim() !== '').join(', ') || 'Chưa xác định...';
+            return `
+<div class="timeline-item ${isWarning ? 'status-warning' : ''}">
+    <div class="timeline-date"><i class="far fa-clock"></i> ${formatVNTime(item.scantime)}</div>
+    <div class="status-title ${isWarning ? 'text-danger' : (idx === 0 ? 'text-primary' : '')}">${esc(status)}${esc(issue)}</div>
+    <div class="location-info"><i class="fas fa-map-marker-alt text-secondary me-1"></i>${esc(addr)}</div>
+    ${item.scanbyname ? `<div class="staff-info"><i class="fas fa-user-check me-1"></i><b>Bưu tá:</b> ${esc(item.scanbyname)} ${item.scanbycontact ? `(${esc(item.scanbycontact)})` : ''}</div>` : ''}
+    ${renderJtImages(item.sigpic)}
+</div>`;
+        }).join('');
+    }
+
+    async function openPartJourney(parentBill) {
+        const popup = document.getElementById('jtTrackingPopup');
+        const container = document.getElementById('jtTrackingTimeline');
+        const childBill = parentBill + '-001';
+        document.getElementById('jtTrackingBillCode').innerText = childBill;
+        popup.style.display = 'flex';
+        container.innerHTML = `<div class="text-center p-5"><div class="spinner-border text-primary"></div><p class="mt-2">Đang tải...</p></div>`;
+        try {
+            const res = await fetch(`/api/orders/part-return/${encodeURIComponent(parentBill)}`, { method: 'POST' });
+            if (!res.ok) throw new Error('bad response');
+            const result = await res.json();
+            if (result.success && result.trackingData && result.trackingData.length) {
+                container.innerHTML = buildJtTimelineHtml(result.trackingData);
+                if (result.updatedStatus) updateOrderStatusBadge(childBill, result.updatedStatus);
+            } else {
+                container.innerHTML = `<div class="text-center py-5 text-warning">${esc(result.message || 'J&T chưa cập nhật hành trình đơn hoàn 1 phần.')}</div>`;
+            }
+        } catch (e) {
+            console.error('Lỗi hành trình đơn 1 phần:', e);
+            container.innerHTML = `<div class="text-center py-5 text-danger">Lỗi kết nối máy chủ.</div>`;
+        }
+    }
+
+    function closeJtTrackingPopup() { document.getElementById('jtTrackingPopup').style.display = 'none'; }
+
+    function openTrackingLightbox(setIdx) {
+        __lightboxImages = __trackingPhotoSets[setIdx] || [];
+        if (!__lightboxImages.length) return;
+        __lightboxIndex = 0;
+        updateLightboxView();
+        document.getElementById('trackingLightbox').style.display = 'flex';
+    }
+    function updateLightboxView() {
+        document.getElementById('trackingLightboxImg').src = __lightboxImages[__lightboxIndex];
+        document.getElementById('trackingLightboxCounter').innerText = `${__lightboxIndex + 1} / ${__lightboxImages.length}`;
+        document.getElementById('trackingLightboxNav').style.display = __lightboxImages.length > 1 ? 'flex' : 'none';
+    }
+    function lightboxPrev(e) { e.stopPropagation(); __lightboxIndex = (__lightboxIndex - 1 + __lightboxImages.length) % __lightboxImages.length; updateLightboxView(); }
+    function lightboxNext(e) { e.stopPropagation(); __lightboxIndex = (__lightboxIndex + 1) % __lightboxImages.length; updateLightboxView(); }
+    function closeTrackingLightbox() { document.getElementById('trackingLightbox').style.display = 'none'; }
+</script>
+
+<%- include('partials/footer', { active: 'part_orders' }) %>

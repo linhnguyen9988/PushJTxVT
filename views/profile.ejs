@@ -1,0 +1,1108 @@
+<%- include('partials/header') %>
+<%- include('partials/admin_theme') %>
+
+    <div class="container py-2">
+        <div class="row g-4">
+            <div class="col-lg-5 text-center">
+                <div class="card border-0 shadow-sm p-4 mb-4">
+                    <div class="profile-avatar-wrap">
+                        <% if (typeof avatar !== 'undefined' && avatar) { %>
+                            <img src="<%= avatar %>">
+                        <% } else { %>
+                            <div class="profile-avatar-letter"><%= (user || '?').trim().charAt(0).toUpperCase() %></div>
+                        <% } %>
+                    </div>
+                    <h4 class="mt-3 mb-0 fw-bold text-dark">
+                        <%= user %>
+                    </h4>
+                    <p class="text-muted small mb-3">Quyền: <span class="badge bg-secondary">
+                            <%= role %>
+                        </span></p>
+
+                    <form action="/profile/upload-avatar" method="POST" enctype="multipart/form-data" class="mt-2">
+                        <div class="input-group input-group-sm mb-2">
+                            <input type="file" name="avatar" class="form-control" accept="image/*" required>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary px-3 flex-grow-1">Cập nhật ảnh</button>
+                            <a class="btn btn-danger btn-sm text-white px-3" href="/logout">Đăng xuất</a>
+                        </div>
+                    </form>
+                </div>
+
+                <% if ((role === 'manager' || role === 'admin') && typeof todayStats !== 'undefined') { %>
+                <div class="card border-0 shadow-sm p-4 text-start mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <i class="fas fa-box me-2 text-success"></i>Đơn hàng hôm nay
+                        </h6>
+                        <span class="text-muted" style="font-size:0.72rem;">Theo giờ tạo</span>
+                    </div>
+
+                    <% if (todayStats && todayStats.length > 0) { %>
+                        <% todayStats.forEach(item => { %>
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <div class="min-w-0">
+                                <div class="fw-semibold small text-truncate" style="max-width:140px;">
+                                    <%= item.shopname || 'Chưa đặt tên' %>
+                                </div>
+                                <div class="text-muted" style="font-size:0.72rem;">@<%= item.username %></div>
+                            </div>
+                            <span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">
+                                <%= item.total_orders %> đơn
+                            </span>
+                            <span class="fw-bold text-success" style="font-family:'Arimo',sans-serif;">
+                                <%= new Intl.NumberFormat('vi-VN').format(item.total_cod || 0) %>đ
+                            </span>
+                        </div>
+                        <% }) %>
+                    <% } else { %>
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-box-open fa-2x mb-2 d-block" style="opacity:.3;"></i>
+                            Hôm nay chưa có đơn hàng
+                        </div>
+                    <% } %>
+                </div>
+                <% } %>
+
+                <div class="card border-0 shadow-sm p-4 text-start">
+                    <%- include('partials/messages') %>
+                    <h6 class="fw-bold mb-3"><i class="fas fa-key me-2 text-muted"></i>Mật khẩu</h6>
+                    <p class="text-muted small mb-3">Đổi mật khẩu đăng nhập tài khoản của bạn.</p>
+                    <button type="button" class="btn btn-outline-success btn-sm w-100 shadow-sm"
+                        onclick="openChangePasswordModal()">
+                        <i class="fas fa-key me-1"></i> Đổi mật khẩu
+                    </button>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 text-start mt-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-shield-halved me-2 text-muted"></i>Xác thực 2 lớp (2FA)</h6>
+                        <span id="tfa-status-badge" class="badge <%= totp_enabled ? 'bg-success' : 'bg-secondary' %>">
+                            <%= totp_enabled ? 'Đã bật' : 'Chưa bật' %>
+                        </span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Dùng app Authenticator (Google Authenticator, Microsoft Authenticator...) để bảo vệ đăng nhập,
+                        đổi mật khẩu<% if (role === 'admin') { %> và các thao tác sửa thông tin người dùng trong Admin Panel<% } %>.
+                    </p>
+                    <% if (totp_enabled) { %>
+                        <button type="button" class="btn btn-outline-danger btn-sm w-100 shadow-sm" onclick="openDisable2FAModal()">
+                            <i class="fas fa-shield-slash me-1"></i> Tắt 2FA
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm w-100 shadow-sm mt-2" onclick="openRegenRecoveryModal()">
+                            <i class="fas fa-key me-1"></i> Tạo lại mã khôi phục
+                        </button>
+                    <% } else { %>
+                        <button type="button" class="btn btn-outline-primary btn-sm w-100 shadow-sm" onclick="openSetup2FAModal()">
+                            <i class="fas fa-shield-halved me-1"></i> Bật 2FA
+                        </button>
+                    <% } %>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 text-start mt-4" id="sessions-card">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-laptop me-2 text-muted"></i>Thiết bị đăng nhập</h6>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="loadSessions()" title="Làm mới">
+                            <i class="fas fa-rotate"></i>
+                        </button>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Các thiết bị đang đăng nhập tài khoản của bạn. Nếu thấy thiết bị lạ, hãy đăng xuất ngay và đổi mật khẩu.
+                    </p>
+                    <div id="sessions-legacy-note" class="alert alert-warning py-1 px-2 small mb-3" style="display:none;">
+                        Bạn đang dùng phiên đăng nhập cũ nên không hiển thị trong danh sách. Hãy đăng xuất và đăng nhập lại để quản lý phiên này.
+                    </div>
+                    <div id="sessions-list">
+                        <div class="text-center text-muted py-3 small"><i class="fas fa-spinner fa-spin me-1"></i> Đang tải...</div>
+                    </div>
+                    <button type="button" class="btn btn-outline-danger btn-sm w-100 shadow-sm mt-3" id="btn-logout-all" onclick="logoutAllSessions()">
+                        <i class="fas fa-right-from-bracket me-1"></i> Đăng xuất tất cả thiết bị
+                    </button>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 text-start mt-4">
+                    <h6 class="fw-bold mb-3"><i class="fas fa-circle-half-stroke me-2 text-muted"></i>Giao diện</h6>
+                    <div class="theme-toggle-row">
+                        <div>
+                            <div class="fw-semibold" style="font-size:0.9rem;">Chế độ tối (Dark mode)</div>
+                            <div class="text-muted" style="font-size:0.78rem;">Đổi giao diện sáng/tối cho toàn bộ ứng dụng</div>
+                        </div>
+                        <div class="form-check form-switch mb-0 ms-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleDarkMode"
+                                style="width:2.8em; height:1.4em; cursor:pointer;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+
+                <div class="row g-3 mb-4">
+
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div class="fw-bold text-uppercase text-muted small">
+                                        <i class="fas fa-chart-bar me-1"></i> Thống kê đơn hàng
+                                    </div>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary stats-filter active" data-days="1">1N</button>
+                                        <button class="btn btn-outline-primary stats-filter" data-days="3">3N</button>
+                                        <button class="btn btn-outline-primary stats-filter" data-days="7">7N</button>
+                                        <button class="btn btn-outline-primary stats-filter" data-days="15">15N</button>
+                                        <button class="btn btn-outline-primary stats-filter" data-days="30">1T</button>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-between align-items-center p-2 rounded mb-2 bg-light border">
+                                    <span class="fw-bold small">📦 Tổng đơn</span>
+                                    <span class="fw-bold" id="s-total">--</span>
+                                </div>
+
+                                <div id="stats-rows">
+                                    <div class="stat-row st-pending">
+                                        <span class="text-warning-emphasis">⏳ Chờ lấy hàng</span>
+                                        <span><span id="s-cnt-pending" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-pending" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="stat-row st-picked">
+                                        <span class="text-info-emphasis">📬 Đã lấy hàng</span>
+                                        <span><span id="s-cnt-picked_up" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-picked_up" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="stat-row st-shipping">
+                                        <span class="text-primary">🚚 Đang vận chuyển</span>
+                                        <span><span id="s-cnt-delivering" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-delivering" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="stat-row st-success">
+                                        <span class="text-success">✅ Thành công</span>
+                                        <span><span id="s-cnt-completed" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-completed" class="text-success fw-bold">--</span></span>
+                                    </div>
+                                    <div class="stat-row st-returned">
+                                        <span class="text-secondary">↩️ Đã hoàn hàng</span>
+                                        <span><span id="s-cnt-returned" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-returned" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="stat-row st-issue">
+                                        <span class="text-danger">⚠️ Kiện vấn đề</span>
+                                        <span><span id="s-cnt-issue" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-issue" class="text-muted">--</span></span>
+                                    </div>
+                                    <div class="stat-row st-cancel">
+                                        <span class="text-secondary">🚫 Đã hủy</span>
+                                        <span><span id="s-cnt-cancel" class="fw-bold">--</span> đơn &nbsp;·&nbsp; <span id="s-rev-cancel" class="text-muted">--</span></span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 mt-4">
+                    <h6 class="fw-bold mb-3">
+                        <img src="/img/viettel.png" height="20" class="me-2">Kho hàng Viettel Post
+                    </h6>
+
+                    <% if (typeof vtp_inventory_id !=='undefined' && vtp_inventory_id) { %>
+                        <div class="p-3 bg-light rounded border border-primary-subtle">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-primary me-2">ID: <%= vtp_inventory_id %></span>
+                                <strong class="text-primary">
+                                    <%= vtp_shop_name %>
+                                </strong>
+                            </div>
+                            <div class="small text-muted mb-1">
+                                <i class="fas fa-phone-alt me-2"></i>
+                                <%= vtp_shop_phone %>
+                            </div>
+                            <div class="small text-muted">
+                                <i class="fas fa-map-marker-alt me-2"></i>
+                                <%= vtp_shop_address %>
+                            </div>
+                        </div>
+                        <p class="text-muted mt-2 mb-0" style="font-size: 0.75rem;">
+                            * Đây là kho mặc định khi bạn tạo đơn hàng Viettel Post.
+                        </p>
+                        <% } else { %>
+                            <div class="p-3 bg-light rounded border border-warning">
+                                <div class="text-warning fw-bold small">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> Chưa có kho hàng
+                                </div>
+                                <div class="text-muted small">Vui lòng liên hệ Admin để được phân bổ kho hàng lấy
+                                    đơn.</div>
+                            </div>
+                            <% } %>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <img src="/img/jte.png" height="20"> Kho J&T Express
+                        </h6>
+                    </div>
+
+                    <div class="p-3 bg-light rounded border border-primary-subtle">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-primary me-2">SĐT: <%= jt_sdt %></span>
+                            <strong class="text-primary">
+                                <%= jt_shopname %>
+                            </strong>
+                        </div>
+                        <div class="small text-muted">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            <%= jt_shopaddress %>, <%= jt_shop_ward %>, <%= jt_shop_district %>, <%= jt_shop_prov %>
+                        </div>
+                    </div>
+
+
+                    <p class="text-danger mt-2 mb-0" style="font-size: 0.7rem;">
+                        * Thông tin kho do Admin quản lý. Vui lòng liên hệ Admin nếu cần thay đổi.
+                    </p>
+                </div>
+                <div class="card border-0 shadow-sm p-4 mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <i class="fas fa-sticky-note text-warning me-2"></i>Ghi chú đơn hàng mẫu
+                        </h6>
+                        <button class="btn btn-sm btn-outline-primary" onclick="openNoteModal()">
+                            <i class="fas fa-plus"></i> Thêm mới
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr>
+                                    <th>Nội dung ghi chú</th>
+                                    <th class="text-end" style="width: 80px;">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="note-list-body">
+                                <% if (typeof notes !=='undefined' && notes.length> 0) { %>
+                                    <% notes.forEach(note=> { %>
+                                        <tr id="note-row-<%= note.id %>">
+                                            <td>
+                                                <%= note.content %>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-link text-danger p-0"
+                                                    onclick="deleteNote('<%= note.id %>')">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <% }) %>
+                                            <% } else { %>
+                                                <tr>
+                                                    <td colspan="2" class="text-center text-muted py-3">Chưa có ghi chú mẫu nào</td>
+                                                </tr>
+                                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0">
+                            <i class="fa-solid fa-boxes-stacked text-warning me-2"></i>Mặt hàng mẫu
+                        </h6>
+                        <button class="btn btn-sm btn-outline-primary" onclick="openProductModal()">
+                            <i class="fas fa-plus"></i> Thêm mới
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle" style="font-size: 0.85rem;">
+                            <thead>
+                                <tr>
+                                    <th>Các loại mặt hàng</th>
+                                    <th class="text-end" style="width: 80px;">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="product-list-body">
+                                <% if (typeof products !=='undefined' && products.length> 0) { %>
+                                    <% products.forEach(product=> { %>
+                                        <tr id="product-row-<%= product.id %>">
+                                            <td>
+                                                <%= product.product_name %>
+                                            </td>
+                                            <td class="text-end">
+                                                <button class="btn btn-link text-danger p-0"
+                                                    onclick="deleteProduct('<%= product.id %>')">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <% }) %>
+                                            <% } else { %>
+                                                <tr>
+                                                    <td colspan="2" class="text-center text-muted py-3">Chưa có mặt hàng nào!</td>
+                                                </tr>
+                                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card border-0 shadow-sm p-4 mt-4">
+                    <h6 class="fw-bold mb-3">
+                        <i class="fas fa-print text-primary me-2"></i>Cài đặt in tem
+                    </h6>
+                    <div class="d-flex justify-content-between align-items-center py-2 px-3 bg-light rounded">
+                        <div>
+                            <div class="fw-semibold" style="font-size:0.9rem;">Hiển thị tiền thu hộ (COD)</div>
+                            <div class="text-muted" style="font-size:0.78rem;">Bật để in dòng "TIỀN THU HỘ" trên tem đơn hàng</div>
+                        </div>
+                        <div class="form-check form-switch mb-0 ms-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleCodSwitch"
+                                style="width:2.8em; height:1.4em; cursor:pointer;"
+                                <%= (typeof show_cod !== 'undefined' && show_cod == 1) ? 'checked' : '' %>
+                                onchange="toggleCodSetting(this.checked)">
+                        </div>
+                    </div>
+                    <div id="cod-toggle-msg" class="mt-2 small" style="display:none;"></div>
+
+                    <hr class="my-3">
+                    <div class="d-flex justify-content-between align-items-center py-2 px-3 bg-light rounded">
+                        <div>
+                            <div class="fw-semibold" style="font-size:0.9rem;">
+                                <i class="fas fa-desktop me-1 text-secondary"></i>In qua App C# (Desktop)
+                            </div>
+                            <div class="text-muted" style="font-size:0.78rem;">
+                                Thay vì xuất PDF, gửi lệnh in thẳng về máy tính qua kết nối socket
+                            </div>
+                            <div class="mt-1">
+                                <span id="printer-status-badge" class="badge bg-secondary" style="font-size:0.72rem;">
+                                    <i class="fas fa-circle me-1" style="font-size:0.6rem;"></i>Chưa kiểm tra
+                                </span>
+                            </div>
+                        </div>
+                        <div class="ms-3 text-end">
+                            <button class="btn btn-sm btn-outline-secondary mb-1" onclick="checkPrinterStatus()" id="btn-check-printer" style="font-size:0.8rem; white-space:nowrap;">
+                                <i class="fas fa-sync-alt me-1"></i>Kiểm tra
+                            </button>
+                            <div class="form-check form-switch mb-0 ms-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleSocketPrintSwitch"
+                                style="width:2.8em; height:1.4em; cursor:pointer;"
+                                <%= (typeof use_socket_print !== 'undefined' && use_socket_print == 1) ? 'checked' : '' %>
+                                onchange="toggleSocketPrintSetting(this.checked)">
+                        </div>
+                        </div>
+                    </div>
+                    <div id="socket-print-toggle-msg" class="mt-2 small" style="display:none;"></div>
+                    <div id="socket-print-msg" class="mt-2 small" style="display:none;"></div>
+                </div>
+
+            </div>
+
+
+            <div id="note-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg" style="min-width: 320px; max-width: 450px; width: 90%;">
+                    <h5 class="fw-bold mb-3">Thêm ghi chú mẫu</h5>
+                    <div class="mb-3">
+                        <textarea id="note-content" class="form-control" rows="3"
+                            placeholder="Ví dụ: Cho xem hàng không cho thử..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeNoteModal()">Hủy</button>
+                        <button class="btn btn-primary flex-grow-1" onclick="saveNote()">Lưu lại</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="product-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg" style="min-width: 320px; max-width: 450px; width: 90%;">
+                    <h5 class="fw-bold mb-3">Thêm mặt hàng</h5>
+                    <div class="mb-3">
+                        <textarea id="product-content" class="form-control" rows="3"
+                            placeholder="Ví dụ: quần áo..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeProductModal()">Hủy</button>
+                        <button class="btn btn-primary flex-grow-1" onclick="saveProduct()">Lưu lại</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="change-password-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg" style="min-width: 320px; max-width: 420px; width: 90%;">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-key me-2 text-success"></i>Đổi mật khẩu</h5>
+                    <div class="mb-2">
+                        <label class="small fw-bold mb-1">Mật khẩu hiện tại</label>
+                        <input type="password" id="cp-old" class="form-control form-control-sm shadow-none" required>
+                    </div>
+                    <div class="mb-2">
+                        <label class="small fw-bold mb-1">Mật khẩu mới</label>
+                        <input type="password" id="cp-new" class="form-control form-control-sm shadow-none" minlength="4" required>
+                        <div class="form-text" style="font-size:0.72rem;">Tối thiểu 4 ký tự.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="small fw-bold mb-1">Xác nhận mật khẩu mới</label>
+                        <input type="password" id="cp-confirm" class="form-control form-control-sm shadow-none" required>
+                    </div>
+                    <% if (totp_enabled) { %>
+                    <div class="mb-3">
+                        <label class="small fw-bold mb-1"><i class="fas fa-shield-halved me-1 text-primary"></i>Mã 2FA</label>
+                        <div id="cp-totp"></div>
+                    </div>
+                    <% } %>
+                    <div id="cp-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeChangePasswordModal()">Hủy</button>
+                        <button class="btn btn-success flex-grow-1" id="cp-submit-btn" onclick="submitChangePassword()">Lưu thay đổi</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="setup-2fa-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 420px; width: 90%;">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-shield-halved me-2 text-primary"></i>Bật Xác thực 2 lớp</h5>
+
+                    <div id="tfa-setup-loading" class="text-center text-muted py-4">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-2 d-block"></i> Đang tạo mã bảo mật...
+                    </div>
+
+                    <div id="tfa-setup-body" style="display:none;">
+                        <p class="small text-muted mb-2">
+                            1. Mở app Authenticator (Google Authenticator, Microsoft Authenticator...) và quét mã QR dưới đây:
+                        </p>
+                        <div class="text-center mb-3">
+                            <img id="tfa-qr-img" src="" alt="QR 2FA" style="width:180px;height:180px;border:1px solid #dee2e6;border-radius:8px;">
+                        </div>
+                        <p class="small text-muted mb-1">Hoặc nhập thủ công mã bí mật này vào app:</p>
+                        <div class="input-group input-group-sm mb-3">
+                            <input type="text" id="tfa-secret-text" class="form-control" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyTfaSecret()"><i class="fas fa-copy"></i></button>
+                        </div>
+                        <p class="small text-muted mb-1">2. Nhập mã 6 số hiện tại từ app để xác nhận:</p>
+                        <div id="tfa-confirm-code" class="mb-3"></div>
+                        <div id="tfa-setup-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-light flex-grow-1" onclick="closeSetup2FAModal()">Hủy</button>
+                            <button class="btn btn-primary flex-grow-1" id="tfa-enable-btn" onclick="confirmEnable2FA()">Xác nhận & Bật</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="disable-2fa-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 400px; width: 90%;">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-shield-slash me-2 text-danger"></i>Tắt Xác thực 2 lớp</h5>
+                    <p class="small text-muted mb-2">Nhập mã 6 số từ app Authenticator, hoặc 1 mã khôi phục nếu đã mất thiết bị.</p>
+                    <div id="disable-tfa-code" class="mb-3"></div>
+                    <div id="tfa-disable-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeDisable2FAModal()">Hủy</button>
+                        <button class="btn btn-danger flex-grow-1" id="tfa-disable-btn" onclick="confirmDisable2FA()">Xác nhận tắt</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="regen-recovery-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 400px; width: 90%;">
+                    <h5 class="fw-bold mb-3"><i class="fas fa-key me-2 text-secondary"></i>Tạo lại mã khôi phục</h5>
+                    <p class="small text-muted mb-2">
+                        Các mã khôi phục cũ sẽ <strong>không còn hiệu lực</strong>. Nhập mã 6 số từ app Authenticator
+                        (hoặc 1 mã khôi phục còn lại) để xác nhận.
+                    </p>
+                    <div id="regen-recovery-code" class="mb-3"></div>
+                    <div id="regen-recovery-error" class="alert alert-danger py-1 px-2 small mb-3" style="display:none;"></div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light flex-grow-1" onclick="closeRegenRecoveryModal()">Hủy</button>
+                        <button class="btn btn-secondary flex-grow-1" id="regen-recovery-btn" onclick="confirmRegenRecovery()">Xác nhận</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="recovery-codes-modal-overlay" class="custom-popup-overlay"
+                style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:10001; justify-content:center; align-items:center;">
+                <div class="bg-white p-4 rounded shadow-lg text-start" style="min-width: 320px; max-width: 440px; width: 92%;">
+                    <h5 class="fw-bold mb-2"><i class="fas fa-key me-2 text-warning"></i>Mã khôi phục 2FA</h5>
+                    <p class="small text-muted mb-3">
+                        Lưu lại 8 mã này ở nơi an toàn. Mỗi mã chỉ dùng được <strong>1 lần</strong> để đăng nhập / đổi mật khẩu /
+                        tắt 2FA khi bạn <strong>mất thiết bị Authenticator</strong>. Mã sẽ <strong>không hiển thị lại</strong> sau khi đóng cửa sổ này.
+                    </p>
+                    <div id="recovery-codes-list" class="mb-3 p-3" style="background:#f8f9fa;border-radius:8px;font-family:monospace;font-size:0.95rem;line-height:1.9;text-align:center;"></div>
+                    <div class="d-flex gap-2 mb-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="copyRecoveryCodes()"><i class="fas fa-copy me-1"></i>Sao chép</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="downloadRecoveryCodes()"><i class="fas fa-download me-1"></i>Tải xuống</button>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="recovery-saved-check">
+                        <label class="form-check-label small" for="recovery-saved-check">Tôi đã lưu lại các mã này ở nơi an toàn.</label>
+                    </div>
+                    <button type="button" class="btn btn-primary w-100" id="recovery-codes-close-btn" disabled onclick="closeRecoveryCodesModal()">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        function openProductModal() {
+            document.getElementById('product-content').value = '';
+            document.getElementById('product-modal-overlay').style.display = 'flex';
+        }
+
+        function closeProductModal() {
+            document.getElementById('product-modal-overlay').style.display = 'none';
+        }
+
+        function openNoteModal() {
+            document.getElementById('note-content').value = '';
+            document.getElementById('note-modal-overlay').style.display = 'flex';
+        }
+
+        function closeNoteModal() {
+            document.getElementById('note-modal-overlay').style.display = 'none';
+        }
+
+        async function saveNote() {
+            const content = document.getElementById('note-content').value;
+            if (!content) return alert("Vui lòng nhập nội dung!");
+
+            try {
+                const res = await fetch('/api/profile/notes/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(result.message || "Lỗi khi lưu");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Lỗi kết nối server!");
+            }
+        }
+
+        async function deleteNote(id) {
+            if (!confirm("Xóa ghi chú này?")) return;
+            try {
+                const res = await fetch(`/api/profile/notes/delete/${id}`, { method: 'POST' });
+                const result = await res.json();
+                if (result.success) {
+                    const row = document.getElementById(`note-row-${id}`);
+                    if (row) row.remove();
+                }
+            } catch (e) {
+                alert("Lỗi xóa ghi chú!");
+            }
+        }
+
+        async function saveProduct() {
+            const content = document.getElementById('product-content').value;
+            if (!content) return alert("Vui lòng nhập nội dung!");
+
+            try {
+                const res = await fetch('/api/profile/products/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(result.message || "Lỗi khi lưu");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Lỗi kết nối server!");
+            }
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm("Xóa mặt hàng này?")) return;
+            try {
+                const res = await fetch(`/api/profile/products/delete/${id}`, { method: 'POST' });
+                const result = await res.json();
+                if (result.success) {
+                    const row = document.getElementById(`product-row-${id}`);
+                    if (row) row.remove();
+                }
+            } catch (e) {
+                alert("Lỗi xóa mặt hàng!");
+            }
+        }
+
+        async function toggleSocketPrintSetting(enabled) {
+            const msgEl = document.getElementById('socket-print-toggle-msg');
+            msgEl.style.display = 'none';
+            try {
+                const res = await fetch('/api/profile/toggle-socket-print', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ use_socket_print: enabled ? 1 : 0 })
+                });
+                const data = await res.json();
+                msgEl.style.display = 'block';
+                if (data.success) {
+                    msgEl.className = 'mt-2 small text-success';
+                    msgEl.textContent = enabled ? '✓ Đã bật in qua App C# mặc định' : '✓ Đã tắt, sẽ xuất PDF như bình thường';
+                } else {
+                    msgEl.className = 'mt-2 small text-danger';
+                    msgEl.textContent = 'Lỗi: ' + (data.message || 'Không thể lưu cài đặt');
+                    document.getElementById('toggleSocketPrintSwitch').checked = !enabled;
+                }
+                setTimeout(() => { msgEl.style.display = 'none'; }, 2500);
+            } catch (e) {
+                msgEl.style.display = 'block';
+                msgEl.className = 'mt-2 small text-danger';
+                msgEl.textContent = 'Lỗi kết nối';
+                document.getElementById('toggleSocketPrintSwitch').checked = !enabled;
+            }
+        }
+
+        async function toggleCodSetting(enabled) {
+            const msgEl = document.getElementById('cod-toggle-msg');
+            msgEl.style.display = 'none';
+            try {
+                const res = await fetch('/api/profile/toggle-cod', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ show_cod: enabled ? 1 : 0 })
+                });
+                const data = await res.json();
+                msgEl.style.display = 'block';
+                if (data.success) {
+                    msgEl.className = 'mt-2 small text-success';
+                    msgEl.textContent = enabled ? '✓ Đã bật hiển thị COD trên tem' : '✓ Đã tắt hiển thị COD trên tem';
+                } else {
+                    msgEl.className = 'mt-2 small text-danger';
+                    msgEl.textContent = 'Lỗi: ' + (data.message || 'Không thể lưu cài đặt');
+                    document.getElementById('toggleCodSwitch').checked = !enabled;
+                }
+                setTimeout(() => { msgEl.style.display = 'none'; }, 2500);
+            } catch (e) {
+                msgEl.style.display = 'block';
+                msgEl.className = 'mt-2 small text-danger';
+                msgEl.textContent = 'Lỗi kết nối';
+                document.getElementById('toggleCodSwitch').checked = !enabled;
+            }
+        }
+
+    </script>
+
+    <script>
+        const CURRENT_USER_ID = '<%= stats.id %>';
+
+        async function checkPrinterStatus() {
+            const badge = document.getElementById('printer-status-badge');
+            const btn = document.getElementById('btn-check-printer');
+            btn.disabled = true;
+            badge.className = 'badge bg-secondary';
+            badge.innerHTML = '<i class="fas fa-spinner fa-spin me-1" style="font-size:0.6rem;"></i>Đang kiểm tra...';
+            try {
+                const res = await fetch('/api/printer-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: CURRENT_USER_ID })
+                });
+                const data = await res.json();
+                if (data.online) {
+                    badge.className = 'badge bg-success';
+                    badge.innerHTML = '<i class="fas fa-circle me-1" style="font-size:0.6rem;"></i>App C# đang Online';
+                } else {
+                    badge.className = 'badge bg-danger';
+                    badge.innerHTML = '<i class="fas fa-circle me-1" style="font-size:0.6rem;"></i>App C# Offline';
+                }
+            } catch (e) {
+                badge.className = 'badge bg-warning text-dark';
+                badge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Lỗi kết nối';
+            }
+            btn.disabled = false;
+        }
+
+        
+    </script>
+
+    <script>
+        const fmt = n => Number(n || 0).toLocaleString('vi-VN') + 'đ';
+
+        const statsKeys = ['pending', 'picked_up', 'delivering', 'completed', 'returned', 'issue', 'cancel'];
+
+        function setStats(s) {
+            document.getElementById('s-total').innerText = Number(s.total || 0).toLocaleString('vi-VN') + ' đơn';
+            statsKeys.forEach(k => {
+                document.getElementById('s-cnt-' + k).innerText = Number(s['cnt_' + k] || 0).toLocaleString('vi-VN');
+                document.getElementById('s-rev-' + k).innerText = fmt(s['rev_' + k]);
+            });
+        }
+
+        function setLoading() {
+            document.getElementById('s-total').innerText = '...';
+            statsKeys.forEach(k => {
+                document.getElementById('s-cnt-' + k).innerText = '...';
+                document.getElementById('s-rev-' + k).innerText = '...';
+            });
+        }
+
+        async function loadStats(days) {
+            setLoading();
+            try {
+                const res = await fetch(`/api/profile/stats?days=${days}`);
+                const data = await res.json();
+                if (data.success) setStats(data.stats);
+            } catch (e) {
+                document.getElementById('s-total').innerText = 'Lỗi';
+            }
+        }
+
+        document.querySelectorAll('.stats-filter').forEach(btn => {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.stats-filter').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                loadStats(Number(this.dataset.days));
+            });
+        });
+
+        loadStats(1);
+    </script>
+
+    <script>
+        function escSess(v) {
+            return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+        function fmtSessTime(v) {
+            if (!v) return '--';
+            var d = new Date(v);
+            if (isNaN(d)) return '--';
+            return d.toLocaleString('vi-VN', { hour12: false });
+        }
+        function sessIcon(t) {
+            if (t === 'mobile') return 'fa-mobile-screen';
+            if (t === 'tablet') return 'fa-tablet-screen-button';
+            return 'fa-desktop';
+        }
+
+        async function loadSessions() {
+            var box = document.getElementById('sessions-list');
+            try {
+                var r = await fetch('/api/sessions', { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                if (r.status === 401) { window.location.href = '/login'; return; }
+                var data = await r.json();
+                if (!data.success) throw new Error(data.message || 'Lỗi');
+                document.getElementById('sessions-legacy-note').style.display = data.legacy ? '' : 'none';
+
+                if (!data.sessions.length) {
+                    box.innerHTML = '<div class="text-center text-muted py-3 small">Không có phiên đăng nhập nào.</div>';
+                    return;
+                }
+                box.innerHTML = data.sessions.map(function (s) {
+                    return '<div class="d-flex align-items-start gap-3 py-2 border-bottom session-item">' +
+                        '<div class="text-muted pt-1" style="width:28px;text-align:center;"><i class="fas ' + sessIcon(s.device_type) + ' fa-lg"></i></div>' +
+                        '<div class="flex-grow-1" style="min-width:0;">' +
+                            '<div class="fw-semibold" style="font-size:0.9rem;word-break:break-word;">' + escSess(s.device || 'Không rõ') +
+                                (s.current ? ' <span class="badge bg-success ms-1" style="font-size:0.68rem;">Thiết bị này</span>' : '') +
+                            '</div>' +
+                            '<div class="text-muted" style="font-size:0.78rem;">' +
+                                '<div><i class="fas fa-location-dot me-1"></i>IP: ' + escSess(s.ip || '--') + '</div>' +
+                                '<div><i class="fas fa-right-to-bracket me-1"></i>Đăng nhập: ' + escSess(fmtSessTime(s.created_at)) + '</div>' +
+                                '<div><i class="fas fa-clock me-1"></i>Hoạt động gần nhất: ' + escSess(fmtSessTime(s.last_active)) + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm flex-shrink-0" onclick="logoutSession(' + Number(s.id) + ',' + (s.current ? 'true' : 'false') + ')">Đăng xuất</button>' +
+                    '</div>';
+                }).join('');
+            } catch (e) {
+                box.innerHTML = '<div class="text-center text-danger py-3 small">Không tải được danh sách thiết bị.</div>';
+            }
+        }
+
+        async function logoutSession(id, isCurrent) {
+            var msg = isCurrent ? 'Đăng xuất khỏi thiết bị này? Bạn sẽ cần đăng nhập lại.' : 'Đăng xuất thiết bị này?';
+            if (!confirm(msg)) return;
+            try {
+                var r = await fetch('/api/sessions/' + id + '/logout', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                var data = await r.json();
+                if (!data.success) { alert(data.message || 'Có lỗi xảy ra.'); return; }
+                if (data.current) { window.location.href = '/login'; return; }
+                loadSessions();
+            } catch (e) { alert('Không thể kết nối máy chủ.'); }
+        }
+
+        async function logoutAllSessions() {
+            if (!confirm('Đăng xuất khỏi TẤT CẢ thiết bị (kể cả thiết bị này)? Bạn sẽ cần đăng nhập lại.')) return;
+            try {
+                var r = await fetch('/api/sessions/logout-all', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                var data = await r.json();
+                if (!data.success) { alert(data.message || 'Có lỗi xảy ra.'); return; }
+                window.location.href = '/login';
+            } catch (e) { alert('Không thể kết nối máy chủ.'); }
+        }
+
+        loadSessions();
+    </script>
+
+    <script>
+        (function () {
+            var sw = document.getElementById('toggleDarkMode');
+            var current = localStorage.getItem('tvship-theme') === 'dark';
+            sw.checked = current;
+
+            sw.addEventListener('change', function () {
+                if (this.checked) {
+                    document.documentElement.setAttribute('data-bs-theme', 'dark');
+                    localStorage.setItem('tvship-theme', 'dark');
+                } else {
+                    document.documentElement.removeAttribute('data-bs-theme');
+                    localStorage.setItem('tvship-theme', 'light');
+                }
+            });
+        })();
+    </script>
+
+    <script>
+        const cpOtpHost = document.getElementById('cp-totp');
+        const cpOtp = cpOtpHost ? OtpInput.mount(cpOtpHost, {
+            recovery: true, size: 'sm',
+            onSubmit: (value, info) => {
+                const filled = ['cp-old', 'cp-new', 'cp-confirm'].every(id => document.getElementById(id).value);
+                if (info.auto && !filled) return;
+                submitChangePassword();
+            }
+        }) : null;
+        const setupOtp = OtpInput.mount(document.getElementById('tfa-confirm-code'), {
+            size: 'sm', onSubmit: () => confirmEnable2FA()
+        });
+        const disableOtp = OtpInput.mount(document.getElementById('disable-tfa-code'), {
+            recovery: true, size: 'sm', onSubmit: () => confirmDisable2FA()
+        });
+        const regenOtp = OtpInput.mount(document.getElementById('regen-recovery-code'), {
+            recovery: true, size: 'sm', onSubmit: () => confirmRegenRecovery()
+        });
+
+        function openChangePasswordModal() {
+            document.getElementById('cp-old').value = '';
+            document.getElementById('cp-new').value = '';
+            document.getElementById('cp-confirm').value = '';
+            document.getElementById('cp-error').style.display = 'none';
+            document.getElementById('change-password-modal-overlay').style.display = 'flex';
+            if (cpOtp) cpOtp.reset({ noFocus: true });
+        }
+        function closeChangePasswordModal() {
+            document.getElementById('change-password-modal-overlay').style.display = 'none';
+        }
+
+        async function submitChangePassword() {
+            const oldPassword = document.getElementById('cp-old').value;
+            const newPassword = document.getElementById('cp-new').value;
+            const confirmPassword = document.getElementById('cp-confirm').value;
+            const totpCode = cpOtp ? cpOtp.getValue().trim() : undefined;
+            const errEl = document.getElementById('cp-error');
+            errEl.style.display = 'none';
+
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                errEl.textContent = 'Vui lòng nhập đầy đủ thông tin.'; errEl.style.display = 'block'; return;
+            }
+            if (newPassword !== confirmPassword) {
+                errEl.textContent = 'Mật khẩu mới không khớp.'; errEl.style.display = 'block'; return;
+            }
+            if (cpOtp && !cpOtp.isComplete()) {
+                errEl.textContent = 'Vui lòng nhập đủ mã 2FA.'; errEl.style.display = 'block'; return;
+            }
+
+            const btn = document.getElementById('cp-submit-btn');
+            btn.disabled = true; if (cpOtp) cpOtp.setDisabled(true); const origHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
+            try {
+                const res = await fetch('/api/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oldPassword, newPassword, confirmPassword, totpCode })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeChangePasswordModal();
+                    showNotice('Thành công', data.message || 'Đổi mật khẩu thành công.', 'success');
+                } else {
+                    errEl.textContent = data.message || 'Không thể đổi mật khẩu.'; errEl.style.display = 'block'; if (cpOtp) cpOtp.reset({ keepMode: true, error: true });
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối server.'; errEl.style.display = 'block'; if (cpOtp) cpOtp.reset({ keepMode: true, error: true });
+            } finally {
+                btn.disabled = false; btn.innerHTML = origHtml; if (cpOtp) cpOtp.setDisabled(false);
+            }
+        }
+
+        async function openSetup2FAModal() {
+            document.getElementById('setup-2fa-modal-overlay').style.display = 'flex';
+            document.getElementById('tfa-setup-loading').style.display = 'block';
+            document.getElementById('tfa-setup-body').style.display = 'none';
+            document.getElementById('tfa-setup-error').style.display = 'none';
+            setupOtp.reset({ noFocus: true });
+
+            try {
+                const res = await fetch('/api/2fa/setup', { method: 'POST' });
+                const data = await res.json();
+                if (!data.success) {
+                    closeSetup2FAModal();
+                    showNotice('Lỗi', data.message || 'Không thể tạo mã 2FA.', 'error');
+                    return;
+                }
+                document.getElementById('tfa-qr-img').src = data.qrDataUrl;
+                document.getElementById('tfa-secret-text').value = data.secret;
+                document.getElementById('tfa-setup-loading').style.display = 'none';
+                document.getElementById('tfa-setup-body').style.display = 'block';
+                setupOtp.reset({ noFocus: true });
+            } catch (e) {
+                closeSetup2FAModal();
+                showNotice('Lỗi', 'Lỗi kết nối server.', 'error');
+            }
+        }
+        function closeSetup2FAModal() {
+            document.getElementById('setup-2fa-modal-overlay').style.display = 'none';
+        }
+        function copyTfaSecret() {
+            const el = document.getElementById('tfa-secret-text');
+            el.select(); el.setSelectionRange(0, 99999);
+            try { document.execCommand('copy'); } catch (e) {}
+            if (navigator.clipboard) navigator.clipboard.writeText(el.value).catch(() => {});
+        }
+        async function confirmEnable2FA() {
+            const code = setupOtp.getValue();
+            const errEl = document.getElementById('tfa-setup-error');
+            errEl.style.display = 'none';
+            if (!setupOtp.isComplete()) {
+                errEl.textContent = 'Vui lòng nhập đủ mã 6 số.'; errEl.style.display = 'block'; return;
+            }
+            const btn = document.getElementById('tfa-enable-btn');
+            btn.disabled = true; setupOtp.setDisabled(true); const orig = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang xác nhận...';
+            try {
+                const res = await fetch('/api/2fa/enable', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeSetup2FAModal();
+                    showRecoveryCodesModal(data.recoveryCodes || []);
+                    window.needsReload = true;
+                } else {
+                    errEl.textContent = data.message || 'Mã không đúng.'; errEl.style.display = 'block'; setupOtp.reset({ keepMode: true, error: true });
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối server.'; errEl.style.display = 'block'; setupOtp.reset({ keepMode: true, error: true });
+            } finally {
+                btn.disabled = false; btn.innerHTML = orig; setupOtp.setDisabled(false);
+            }
+        }
+
+        function openDisable2FAModal() {
+            document.getElementById('tfa-disable-error').style.display = 'none';
+            document.getElementById('disable-2fa-modal-overlay').style.display = 'flex';
+            disableOtp.reset();
+        }
+        function closeDisable2FAModal() {
+            document.getElementById('disable-2fa-modal-overlay').style.display = 'none';
+        }
+        async function confirmDisable2FA() {
+            const code = disableOtp.getValue();
+            const errEl = document.getElementById('tfa-disable-error');
+            errEl.style.display = 'none';
+            if (!disableOtp.isComplete()) { errEl.textContent = 'Vui lòng nhập mã 2FA.'; errEl.style.display = 'block'; return; }
+
+            const btn = document.getElementById('tfa-disable-btn');
+            btn.disabled = true; disableOtp.setDisabled(true); const orig = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang xử lý...';
+            try {
+                const res = await fetch('/api/2fa/disable', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeDisable2FAModal();
+                    showNotice('Thành công', data.message || 'Đã tắt 2FA.', 'success');
+                    window.needsReload = true;
+                } else {
+                    errEl.textContent = data.message || 'Mã không đúng.'; errEl.style.display = 'block'; disableOtp.reset({ keepMode: true, error: true });
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối server.'; errEl.style.display = 'block'; disableOtp.reset({ keepMode: true, error: true });
+            } finally {
+                btn.disabled = false; btn.innerHTML = orig; disableOtp.setDisabled(false);
+            }
+        }
+
+        function openRegenRecoveryModal() {
+            document.getElementById('regen-recovery-error').style.display = 'none';
+            document.getElementById('regen-recovery-modal-overlay').style.display = 'flex';
+            regenOtp.reset();
+        }
+        function closeRegenRecoveryModal() {
+            document.getElementById('regen-recovery-modal-overlay').style.display = 'none';
+        }
+        async function confirmRegenRecovery() {
+            const code = regenOtp.getValue();
+            const errEl = document.getElementById('regen-recovery-error');
+            errEl.style.display = 'none';
+            if (!regenOtp.isComplete()) { errEl.textContent = 'Vui lòng nhập mã xác nhận.'; errEl.style.display = 'block'; return; }
+
+            const btn = document.getElementById('regen-recovery-btn');
+            btn.disabled = true; regenOtp.setDisabled(true); const orig = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang xử lý...';
+            try {
+                const res = await fetch('/api/2fa/recovery-codes/regenerate', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeRegenRecoveryModal();
+                    showRecoveryCodesModal(data.recoveryCodes || []);
+                } else {
+                    errEl.textContent = data.message || 'Mã không đúng.'; errEl.style.display = 'block'; regenOtp.reset({ keepMode: true, error: true });
+                }
+            } catch (e) {
+                errEl.textContent = 'Lỗi kết nối server.'; errEl.style.display = 'block'; regenOtp.reset({ keepMode: true, error: true });
+            } finally {
+                btn.disabled = false; btn.innerHTML = orig; regenOtp.setDisabled(false);
+            }
+        }
+
+        let _currentRecoveryCodes = [];
+        function showRecoveryCodesModal(codes) {
+            _currentRecoveryCodes = codes;
+            const listEl = document.getElementById('recovery-codes-list');
+            listEl.innerHTML = codes.map(c => `<div>${c}</div>`).join('');
+            document.getElementById('recovery-saved-check').checked = false;
+            document.getElementById('recovery-codes-close-btn').disabled = true;
+            document.getElementById('recovery-codes-modal-overlay').style.display = 'flex';
+        }
+        function closeRecoveryCodesModal() {
+            document.getElementById('recovery-codes-modal-overlay').style.display = 'none';
+            if (window.needsReload) { window.needsReload = false; location.reload(); }
+        }
+        document.getElementById('recovery-saved-check').addEventListener('change', function () {
+            document.getElementById('recovery-codes-close-btn').disabled = !this.checked;
+        });
+        function copyRecoveryCodes() {
+            const text = _currentRecoveryCodes.join('\n');
+            if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+            showNotice('Đã sao chép', 'Đã sao chép các mã khôi phục vào clipboard.', 'success');
+        }
+        function downloadRecoveryCodes() {
+            const text = 'TV Ship - Mã khôi phục 2FA\nMỗi mã chỉ dùng được 1 lần.\n\n' + _currentRecoveryCodes.join('\n') + '\n';
+            const blob = new Blob([text], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'tvship-2fa-recovery-codes.txt';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+    </script>
+
+    <%- include('partials/footer', { active: 'profile' }) %>
