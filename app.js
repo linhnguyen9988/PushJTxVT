@@ -78,6 +78,10 @@ function getBadge(status) {
 
 const app = express();
 
+const BEHIND_PROXY = process.env.BEHIND_PROXY === '1';
+const APP_PORT = Number(process.env.PORT || 3001);
+if (BEHIND_PROXY) app.set('trust proxy', 'loopback');
+
 const KEY_PATH = process.env.SSL_KEY_PATH || path.join(__dirname, 'tvship.vn-key.pem');
 const CERT_PATH = process.env.SSL_CERT_PATH || path.join(__dirname, 'tvship.vn-chain.pem');
 
@@ -85,18 +89,19 @@ const options = (fs.existsSync(KEY_PATH) && fs.existsSync(CERT_PATH))
     ? { key: fs.readFileSync(KEY_PATH), cert: fs.readFileSync(CERT_PATH) }
     : {};
 const httpServer = http.createServer(app);
-const httpsServer = https.createServer(options, app);
+const httpsServer = BEHIND_PROXY ? httpServer : https.createServer(options, app);
 
 const { createSslRenewer } = require('./ssl-renew');
 const sslRenewer = createSslRenewer({
     domains: (process.env.SSL_DOMAINS || 'tvship.vn').split(',').map(d => d.trim()).filter(Boolean),
-    email: process.env.SSL_EMAIL,
+    email: BEHIND_PROXY ? undefined : process.env.SSL_EMAIL,
     keyPath: KEY_PATH,
     certPath: CERT_PATH,
     staging: process.env.SSL_STAGING === '1',
-    onReload: ({ key, cert }) => httpsServer.setSecureContext({ key, cert })
+    log: BEHIND_PROXY ? { log() {}, warn() {}, error() {} } : console,
+    onReload: ({ key, cert }) => { if (!BEHIND_PROXY) httpsServer.setSecureContext({ key, cert }); }
 });
-// Phải đứng TRƯỚC middleware redirect https và app.use(isAuth)
+
 app.get('/.well-known/acme-challenge/:token', sslRenewer.challengeHandler);
 
 const io = new Server(httpsServer, {
@@ -171,7 +176,7 @@ io.on("connection", (socket) => {
 });
 
 app.use((req, res, next) => {
-    if (req.path.startsWith('/.well-known/acme-challenge/')) {
+    if (BEHIND_PROXY || req.path.startsWith('/.well-known/acme-challenge/')) {
         return next();
     }
     if (!req.secure) {
@@ -371,7 +376,7 @@ async function syncPartReturnJourney(childBill) {
 }
 
 function getClientIp(req) {
-    let ip = (req.socket && req.socket.remoteAddress) || req.ip || '';
+    let ip = (BEHIND_PROXY ? req.ip : (req.socket && req.socket.remoteAddress)) || req.ip || '';
     ip = String(ip).replace(/^::ffff:/, '');
     if (ip === '::1') ip = '127.0.0.1';
     return ip.slice(0, 64);
@@ -1841,6 +1846,7 @@ function cleanSearchTerm(str) {
     return cleaned
         .replace(/(kcn|phường|xã|quận|huyện|thị xã|thị trấn|tt|tx|thành phố|thi xã|thi trấn|đảo|p.) (?!\d)/gi, "")
         .replace('trấn trấn', '')
+        .replace('nghìn tường', 'nghinh tường')
         .replace('nam  yang', 'nam yang')
         .replace('tt bảy ngàn', 'bảy ngàn')
         .replace('tt. bảy ngàn', 'bảy ngàn')
@@ -5140,14 +5146,20 @@ app.get('/logout', (req, res) => {
         done();
     }
 });
-httpServer.listen(80, () => {
-    console.log('HTTP: 80');
-});
+if (BEHIND_PROXY) {
+    httpServer.listen(APP_PORT, '127.0.0.1', () => {
+        console.log(`HTTP (sau nginx): 127.0.0.1:${APP_PORT}`);
+    });
+} else {
+    httpServer.listen(80, () => {
+        console.log('HTTP: 80');
+    });
 
-httpsServer.listen(443, () => {
-    console.log('HTTPS: 443');
-});
+    httpsServer.listen(443, () => {
+        console.log('HTTPS: 443');
+    });
 
-sslRenewer.start();
+    sslRenewer.start();
+}
 
 //app.listen(3000, () => console.log('PushOrder System: http://localhost:3000'));
