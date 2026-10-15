@@ -1853,6 +1853,7 @@ function cleanSearchTerm(str) {
         .replace('đường mười', 'Đường 10')
         .replace('p mông dương', 'mông dương')
         .replace('.', '')
+        .replace('cư jang', 'cư yang')
         .replace('lương thế chân', 'lương thế trân')
         .replace('đăk drong', 'Đăk Đrông')
         .replace('đăk taley', 'đăk ta ley')
