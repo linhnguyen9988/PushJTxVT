@@ -71,6 +71,20 @@ function logPartSignToFile(billCode, partSign, details) {
     });
 }
 
+// Log sự kiện đơn hoàn 1 phần (-001) ra logs/partreturn-YYYY-MM-DD.log để xem J&T thực tế trả trạng thái gì
+function logPartReturnEvent(kind, billCode, info) {
+    try {
+        const now = new Date();
+        const filePath = path.join(LOG_DIR, `partreturn-${now.toISOString().slice(0, 10)}.log`);
+        const line = `[${now.toLocaleString('vi-VN')}] ${kind} | ${billCode} | ${JSON.stringify(info)}\n`;
+        fs.appendFile(filePath, line, (err) => {
+            if (err) console.error('Lỗi ghi file partreturn:', err.message);
+        });
+    } catch (e) {
+        console.error('Lỗi ghi log partreturn:', e.message);
+    }
+}
+
 function getBadge(status) {
     const s = status ? status.toLowerCase() : '';
     return STATUS_MAP[s] || { text: status || 'N/A', class: 'bg-light text-dark border' };
@@ -253,6 +267,79 @@ function isPartReturnBill(code) {
     return /^\d+-\d{3}$/.test(String(code || ''));
 }
 
+const JT_STATUS_VN = {
+    103: "Tạo đơn thành công", 105: "Đã hủy đơn", 106: "Bưu tá đã lấy hàng",
+    109: "Xuất kho trung chuyển", 110: "Hàng đã đến bưu cục", 112: "Đang giao hàng",
+    113: "Giao hàng thành công", 116: "Đang chuyển hoàn", 117: "Đã ký nhận hoàn trả",
+    118: "Kiện vấn đề (Giao)", 120: "Kiện vấn đề (Hoàn)"
+};
+
+function jtTypeName(code, name) {
+    let n = JT_STATUS_VN[code] || name || 'Hành trình mới';
+    if (n === '中心到件') n = 'Hàng đến TTKT';
+    else if (n === '取件失败') n = 'Nhận hàng không thành công';
+    return n;
+}
+
+function jtPics(d) {
+    d = d || {};
+    const urls = [];
+    const addLoose = v => {
+        if (Array.isArray(v)) v.forEach(addLoose);
+        else if (typeof v === 'string' && v.trim() !== '') urls.push(v.trim());
+    };
+    const addStrict = v => {
+        if (Array.isArray(v)) v.forEach(addStrict);
+        else if (typeof v === 'string') v.split(/,(?=https?:\/\/)/i).map(x => x.trim()).forEach(u => { if (/^https?:\/\//i.test(u)) urls.push(u); });
+    };
+    addLoose(d.pictureUrl);
+    addLoose(d.sigPicUrl);
+    for (const [k, v] of Object.entries(d)) {
+        if (k === 'pictureUrl' || k === 'sigPicUrl') continue;
+        if (/pic|image|img|photo/i.test(k)) addStrict(v);
+    }
+    const uniq = [...new Set(urls)];
+    return uniq.length ? JSON.stringify(uniq) : null;
+}
+
+function toJourneyRow(d) {
+    const phone = d.staffContact || d.scanByContact || null;
+    return {
+        scantypename: jtTypeName(Number(d.scanTypeCode), d.scanTypeName),
+        scantime: d.scanTime ? String(d.scanTime).replace(' ', 'T') : null,
+        scanpost: d.scanNetworkName || null,
+        scanward: d.scanNetworkArea || null,
+        scancity: d.scanNetworkCity || null,
+        scanprov: d.scanNetworkProvince || null,
+        scanbyname: d.staffName || d.scanByName || null,
+        scanbycontact: phone ? phone.replace('+84', '0') : null,
+        issuename: d.reason || d.abnormalPieceName || null,
+        sigpic: jtPics(d)
+    };
+}
+
+async function upsertPartJourneyRow(childBill, t) {
+    const parentBill = childBill.replace(/-\d{3}$/, '');
+    await db.promise().query(
+        `INSERT INTO part_return_journeys
+            (child_bill, parent_bill, scantypename, scantime, scanpost, scanward, scancity, scanprov, scanbyname, scanbycontact, issuename, sigpic)
+         SELECT ?,?,?,?,?,?,?,?,?,?,?,? FROM DUAL
+         WHERE NOT EXISTS (
+            SELECT 1 FROM part_return_journeys WHERE child_bill = ? AND scantime <=> ? AND scantypename <=> ?
+         )`,
+        [childBill, parentBill, t.scantypename, t.scantime, t.scanpost, t.scanward, t.scancity, t.scanprov,
+         t.scanbyname, t.scanbycontact, t.issuename, t.sigpic,
+         childBill, t.scantime, t.scantypename]
+    );
+    if (t.sigpic) {
+        await db.promise().query(
+            `UPDATE part_return_journeys SET sigpic = ?
+             WHERE child_bill = ? AND scantime <=> ? AND scantypename <=> ? AND (sigpic IS NULL OR sigpic = '')`,
+            [t.sigpic, childBill, t.scantime, t.scantypename]
+        );
+    }
+}
+
 async function createPartReturnOrder(billCode) {
     const childBill = billCode + '-001';
     try {
@@ -306,27 +393,8 @@ async function fetchPartReturnTrace(childBill) {
     }
 
     const sortedDesc = [...details].sort((a, b) => new Date(String(b.scanTime).replace(' ', 'T')) - new Date(String(a.scanTime).replace(' ', 'T')));
-    const trackingData = sortedDesc.map(d => {
-        let pics = [];
-        if (Array.isArray(d.pictureUrl)) pics = d.pictureUrl;
-        else if (d.pictureUrl) pics = [d.pictureUrl];
-        else if (Array.isArray(d.sigPicUrl)) pics = d.sigPicUrl;
-        else if (d.sigPicUrl) pics = [d.sigPicUrl];
-        pics = pics.filter(u => typeof u === 'string' && u.trim() !== '');
-        return {
-            scantypename: d.scanTypeName || 'Cập nhật hành trình',
-            scantime: d.scanTime ? String(d.scanTime).replace(' ', 'T') : null,
-            scanpost: d.scanNetworkName || null,
-            scanward: d.scanNetworkArea || null,
-            scancity: d.scanNetworkCity || null,
-            scanprov: d.scanNetworkProvince || null,
-            scanbyname: d.staffName || null,
-            scanbycontact: d.staffContact ? d.staffContact.replace('+84', '0') : null,
-            issuename: d.reason || null,
-            sigpic: pics.length > 0 ? JSON.stringify(pics) : null
-        };
-    });
-    return { ok: true, trackingData, newest: sortedDesc[0] };
+    const trackingData = sortedDesc.map(d => toJourneyRow(d));
+    return { ok: true, trackingData, newest: sortedDesc[0], rawCodes: sortedDesc.map(d => `${d.scanTypeCode}:${d.scanTypeName}@${d.scanTime}`), sorted: sortedDesc };
 }
 
 async function loadPartJourneyFromDb(childBill) {
@@ -339,40 +407,101 @@ async function loadPartJourneyFromDb(childBill) {
 }
 
 async function savePartJourneyToDb(childBill, trackingData) {
-    const parentBill = childBill.replace(/-\d{3}$/, '');
-    const conn = await db.promise().getConnection();
-    try {
-        await conn.beginTransaction();
-        await conn.query('DELETE FROM part_return_journeys WHERE child_bill = ?', [childBill]);
-        for (const t of trackingData) {
-            await conn.query(
-                `INSERT INTO part_return_journeys
-                 (child_bill, parent_bill, scantypename, scantime, scanpost, scanward, scancity, scanprov, scanbyname, scanbycontact, issuename, sigpic)
-                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-                [childBill, parentBill, t.scantypename, t.scantime, t.scanpost, t.scanward, t.scancity, t.scanprov, t.scanbyname, t.scanbycontact, t.issuename, t.sigpic]
-            );
-        }
-        await conn.commit();
-    } catch (e) {
-        await conn.rollback();
-        throw e;
-    } finally {
-        conn.release();
-    }
+    for (const t of trackingData) await upsertPartJourneyRow(childBill, t);
 }
 
 async function syncPartReturnJourney(childBill) {
     try {
         const r = await fetchPartReturnTrace(childBill);
-        if (!r.ok) return;
-        const mapped = mapJtStatusByCode(r.newest.scanTypeCode, r.newest.scanTypeName, r.newest.desc);
-        if (mapped === 'completed') {
-            await savePartJourneyToDb(childBill, r.trackingData);
-            console.log(`[Webhook J&T] Đã lưu hành trình đơn 1 phần ${childBill} vào DB`);
+        if (!r.ok) return { ok: false, message: r.message };
+        await savePartJourneyToDb(childBill, r.trackingData);
+        let appliedStatus = null;
+
+        for (const d of r.sorted.filter(x => [113, 117].includes(Number(x.scanTypeCode)))) {
+            logPartReturnEvent('sync-signed', childBill, {
+                code: d.scanTypeCode, scanTime: d.scanTime,
+                picKeys: Object.keys(d).filter(k => /pic|image|img|photo|sign/i.test(k)),
+                pics: jtPics(d)
+            });
         }
+
+        const latest = r.sorted.find(d => mapJtStatusByCode(d.scanTypeCode, null, null));
+        if (latest) {
+            const mapped = mapJtStatusByCode(latest.scanTypeCode, null, null);
+            const traceNewest = String(r.sorted[0].scanTime).replace(' ', 'T');
+            const [mxRows] = await db.promise().query('SELECT MAX(scantime) AS m FROM part_return_journeys WHERE child_bill = ?', [childBill]);
+            const dbNewest = mxRows[0] && mxRows[0].m;
+            if (dbNewest && dbNewest > traceNewest) {
+                logPartReturnEvent('sync-status-skip', childBill, { reason: 'trace cũ hơn DB', traceNewest, dbNewest });
+            } else {
+                const issue = mapped === 'issue' ? (latest.reason || latest.abnormalPieceName || 'Kiện vấn đề') : null;
+                const [upd] = await db.promise().query('UPDATE orders SET status = ?, issue = ? WHERE realjtbillcode = ?', [mapped, issue, childBill]);
+                logPartReturnEvent('sync-status', childBill, { latest: `${latest.scanTypeCode}:${latest.scanTypeName}@${latest.scanTime}`, mapped, affectedRows: upd.affectedRows });
+                appliedStatus = mapped;
+            }
+        }
+        console.log(`[Webhook J&T] Đã đồng bộ hành trình đơn 1 phần ${childBill} vào DB`);
+        return { ok: true, mapped: appliedStatus };
     } catch (e) {
         console.error('[Webhook J&T] Lỗi lưu hành trình đơn 1 phần:', e.message);
+        return { ok: false, message: e.message };
     }
+}
+
+// Hành trình đơn hoàn 1 phần: đọc từ part_return_journeys (webhook + sync đã ghi sẵn); chỉ gọi J&T khi DB chưa có mốc nào
+async function getPartReturnJourney(childBill) {
+    const saved = await loadPartJourneyFromDb(childBill);
+    if (saved.length > 0) {
+        return { success: true, childBill, trackingData: saved, updatedStatus: null, source: 'db' };
+    }
+
+    // DB trống (đơn cũ chưa nhận webhook từ lúc deploy): kéo từ J&T một lần để lưu lại
+    const r = await fetchPartReturnTrace(childBill);
+    if (!r.ok) return { success: false, message: r.message };
+    try { await savePartJourneyToDb(childBill, r.trackingData); }
+    catch (e) { console.error('Lỗi lưu hành trình đơn 1 phần:', e.message); }
+    logPartReturnEvent('backfill', childBill, { total: r.trackingData.length, rawCodes: r.rawCodes });
+    const merged = await loadPartJourneyFromDb(childBill);
+
+    return { success: true, childBill, trackingData: merged.length ? merged : r.trackingData, updatedStatus: null, source: 'api' };
+}
+
+// Chạy một lần: kéo bù hành trình + trạng thái từ J&T cho các đơn hoàn 1 phần cũ (chạy nền, tuần tự, log ở logs/partreturn-*.log)
+async function backfillPartReturnJourneys(all) {
+    if (backfillPartReturnJourneys.running) return { started: false, message: 'Tiến trình kéo bù đang chạy, xem logs/partreturn-*.log' };
+    const statusFilter = all ? "status <> 'cancel'" : "status NOT IN ('cancel', 'completed', 'returned')";
+    const [rows] = await db.promise().query(
+        `SELECT realjtbillcode, status FROM orders
+         WHERE realjtbillcode REGEXP '^[0-9]+-[0-9]{3}$' AND ${statusFilter}
+         ORDER BY created_at DESC`
+    );
+    backfillPartReturnJourneys.running = true;
+    (async () => {
+        const stat = { total: rows.length, changed: 0, failed: 0 };
+        try {
+            for (const row of rows) {
+                try {
+                    const res = await syncPartReturnJourney(row.realjtbillcode);
+                    if (!res || !res.ok) {
+                        stat.failed++;
+                        logPartReturnEvent('backfill-run', row.realjtbillcode, { ok: false, message: res && res.message });
+                    } else if (res.mapped && res.mapped !== row.status) {
+                        stat.changed++;
+                        logPartReturnEvent('backfill-run', row.realjtbillcode, { from: row.status, to: res.mapped });
+                    }
+                } catch (e) {
+                    stat.failed++;
+                    logPartReturnEvent('backfill-run', row.realjtbillcode, { ok: false, message: e.message });
+                }
+                await new Promise(resolve => setTimeout(resolve, 400));
+            }
+        } finally {
+            backfillPartReturnJourneys.running = false;
+            logPartReturnEvent('backfill-done', 'ALL', stat);
+            console.log('[Backfill đơn 1 phần] Xong:', JSON.stringify(stat));
+        }
+    })();
+    return { started: true, total: rows.length };
 }
 
 function getClientIp(req) {
@@ -1040,6 +1169,9 @@ app.post('/jtex', function (req, res) {
             db.query(sqlInsertWaybill, waybillParams, (err) => {
                 if (err) console.error('[Webhook J&T] Lỗi INSERT jtwaybill:', err);
             });
+        } else {
+            upsertPartJourneyRow(billCode, toJourneyRow(details))
+                .catch(e => console.error('[Webhook J&T] Lỗi lưu hành trình đơn 1 phần:', e.message));
         }
 
         const scanCode = Number(details.scanTypeCode);
@@ -1075,7 +1207,8 @@ app.post('/jtex', function (req, res) {
 
             case 112:
                 updateSql = `UPDATE orders
-                    SET status = 'out_for_delivery', issue = null WHERE realjtbillcode =?`;
+                    SET status = 'out_for_delivery', issue = null
+                    WHERE realjtbillcode =? AND status NOT IN ('completed', 'cancel', 'returned')`;
                 params = [billCode];
                 break;
 
@@ -1088,7 +1221,7 @@ app.post('/jtex', function (req, res) {
             case 116:
                 updateSql = `UPDATE orders
                     SET status = 'returning', issue = null
-                    WHERE realjtbillcode =?`;
+                    WHERE realjtbillcode =? AND status NOT IN ('completed', 'cancel', 'returned')`;
                 params = [billCode];
                 break;
 
@@ -1111,8 +1244,19 @@ app.post('/jtex', function (req, res) {
             //console.log(details.scanTypeName);
         }
 
+        if (isPartReturnBill(billCode)) {
+            logPartReturnEvent('webhook', billCode, {
+                scanTypeCode: details.scanTypeCode, scanTypeName: details.scanTypeName, desc: details.desc,
+                mappedStatus: mapJtStatusByCode(details.scanTypeCode, details.scanTypeName, details.desc),
+                switchHandled: !!updateSql, raw: details
+            });
+        }
+
         if (updateSql) {
             db.query(updateSql, params, (err, result) => {
+                if (isPartReturnBill(billCode)) {
+                    logPartReturnEvent('webhook-update', billCode, { err: err ? err.message : null, affectedRows: result ? result.affectedRows : null });
+                }
                 if (err) {
                     console.error('[Webhook J&T] Lỗi thực thi SQL:', err.message);
                 } else if (result.affectedRows === 0) {
@@ -1121,8 +1265,13 @@ app.post('/jtex', function (req, res) {
             });
         }
         
-        if (scanCode === 113 && isPartReturnBill(billCode)) {
+        if (isPartReturnBill(billCode)) {
             setTimeout(() => syncPartReturnJourney(billCode), 3000);
+            // Ảnh ký nhận J&T gắn muộn hơn webhook (webhook 113/117 thường có pictureUrl rỗng): đồng bộ lại sau 2 và 10 phút
+            if (scanCode === 113 || scanCode === 117) {
+                setTimeout(() => syncPartReturnJourney(billCode), 2 * 60 * 1000);
+                setTimeout(() => syncPartReturnJourney(billCode), 10 * 60 * 1000);
+            }
         }
 
         if (scanCode >= 106 && scanCode !== 105) {
@@ -1157,6 +1306,16 @@ app.post('/admin/toggle-registration-lock', isAdmin, require2FA, (req, res) => {
             res.json({ success: true, locked });
         });
     });
+});
+
+app.post('/admin/part-return/backfill', isAdmin, require2FA, async (req, res) => {
+    try {
+        const r = await backfillPartReturnJourneys(!!(req.body && req.body.all));
+        return res.json(Object.assign({ success: r.started !== false }, r));
+    } catch (err) {
+        console.error('Lỗi kéo bù đơn 1 phần:', err.message);
+        return res.status(500).json({ success: false, message: 'Lỗi hệ thống khi kéo bù đơn 1 phần!' });
+    }
 });
 
 app.get('/admin/ssl/status', isAdmin, (req, res) => {
@@ -1864,6 +2023,7 @@ function cleanSearchTerm(str) {
         .replace('chi lễ', 'tri lễ')
         .replace('buôn choach', 'buôn choah')
         .replace('si phìn', 'si pa phìn')
+        .replace('chưpơng', 'chư pơng')
         .replace(' (gia kiệm)', '')
         .replace('bà rịa - vũng tàu', 'bà rịa – vũng tàu')
         .replace('thừa thiên - huế', 'thừa thiên – huế')
@@ -4000,6 +4160,14 @@ app.get('/api/orders/track-jt/:billCode', async (req, res) => {
             `SELECT status, provider FROM orders WHERE realjtbillcode = ? OR order_code = ? LIMIT 1`,
             [billCode, billCode]
         );
+        // Đơn hoàn 1 phần (mã cũ-001): hành trình nằm ở part_return_journeys, không phải jtwaybill
+        if (isPartReturnBill(billCode)) {
+            return res.json({
+                success: true,
+                currentStatus: orderInfo[0]?.status || 'N/A',
+                trackingData: await loadPartJourneyFromDb(billCode)
+            });
+        }
         const [trackingData] = await db.promise().execute(
             `SELECT * FROM jtwaybill WHERE billcode = ? ORDER BY id DESC`,
             [billCode]
@@ -4038,37 +4206,7 @@ app.post('/api/orders/part-return/:billCode', async (req, res) => {
     const childBill = parentBill + '-001';
 
     try {
-        // Đơn đã hoàn thành công và đã lưu hành trình => lấy từ DB, không gọi API nữa
-        const [ord] = await db.promise().query('SELECT status FROM orders WHERE realjtbillcode = ? LIMIT 1', [childBill]);
-        if (ord.length > 0 && ord[0].status === 'completed') {
-            const saved = await loadPartJourneyFromDb(childBill);
-            if (saved.length > 0) {
-                return res.json({ success: true, childBill, trackingData: saved, updatedStatus: null, source: 'db' });
-            }
-        }
-
-        const r = await fetchPartReturnTrace(childBill);
-        if (!r.ok) return res.json({ success: false, message: r.message });
-        const { trackingData, newest } = r;
-
-        const mapped = mapJtStatusByCode(newest.scanTypeCode, newest.scanTypeName, newest.desc);
-        let updatedStatus = null;
-        if (mapped) {
-            const issue = mapped === 'issue' ? (newest.reason || newest.desc || newest.scanTypeName || 'Kiện vấn đề') : null;
-            const [upd] = await db.promise().query(
-                'UPDATE orders SET status = ?, issue = ? WHERE realjtbillcode = ?',
-                [mapped, issue, childBill]
-            );
-            if (upd.affectedRows > 0) updatedStatus = mapped;
-        }
-
-        // Chỉ lưu hành trình vào DB khi giao thành công
-        if (mapped === 'completed') {
-            try { await savePartJourneyToDb(childBill, trackingData); }
-            catch (e) { console.error('Lỗi lưu hành trình đơn 1 phần:', e.message); }
-        }
-
-        return res.json({ success: true, childBill, trackingData, updatedStatus, source: 'api' });
+        return res.json(await getPartReturnJourney(childBill));
     } catch (err) {
         console.error("Lỗi Trace J&T đơn 1 phần:", err.message);
         return res.status(500).json({ success: false, message: "Lỗi hệ thống khi tra hành trình đơn 1 phần!" });
@@ -4099,6 +4237,25 @@ function mapJtStatusFromTrace(typeName, desc) {
 app.post('/api/orders/track-jt/:billCode/refresh', async (req, res) => {
     const { billCode } = req.params;
     if (!billCode) return res.json({ success: false, message: "Thiếu mã vận đơn" });
+
+    if (isPartReturnBill(billCode)) {
+        try {
+            return res.json(await getPartReturnJourney(billCode));
+        } catch (err) {
+            console.error("Lỗi Trace J&T đơn 1 phần:", err.message);
+            return res.status(500).json({ success: false, message: "Lỗi hệ thống khi tra hành trình đơn 1 phần!" });
+        }
+    }
+
+    // Đơn hoàn 1 phần (mã cũ-001): không ghi vào jtwaybill, dùng luồng riêng
+    if (isPartReturnBill(billCode)) {
+        try {
+            return res.json(await getPartReturnJourney(billCode));
+        } catch (err) {
+            console.error("Lỗi Trace J&T đơn 1 phần:", err.message);
+            return res.status(500).json({ success: false, message: "Lỗi hệ thống khi tra hành trình đơn 1 phần!" });
+        }
+    }
 
     try {
         const pkey = JT_CONFIG.pkey;
