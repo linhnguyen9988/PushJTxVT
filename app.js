@@ -71,7 +71,6 @@ function logPartSignToFile(billCode, partSign, details) {
     });
 }
 
-// Log sự kiện đơn hoàn 1 phần (-001) ra logs/partreturn-YYYY-MM-DD.log để xem J&T thực tế trả trạng thái gì
 function logPartReturnEvent(kind, billCode, info) {
     try {
         const now = new Date();
@@ -217,28 +216,6 @@ db.getConnection((err, connection) => {
     }
 });
 
-
-db.query(`CREATE TABLE IF NOT EXISTS part_return_journeys (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    child_bill VARCHAR(50) NOT NULL,
-    parent_bill VARCHAR(50) NOT NULL,
-    scantypename VARCHAR(255) NULL,
-    scantime VARCHAR(25) NULL,
-    scanpost VARCHAR(255) NULL,
-    scanward VARCHAR(255) NULL,
-    scancity VARCHAR(255) NULL,
-    scanprov VARCHAR(255) NULL,
-    scanbyname VARCHAR(255) NULL,
-    scanbycontact VARCHAR(50) NULL,
-    issuename VARCHAR(500) NULL,
-    sigpic TEXT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_child_bill (child_bill),
-    INDEX idx_parent_bill (parent_bill)
-) CHARACTER SET utf8mb4`, (err) => {
-    if (err) console.error('Lỗi tạo bảng part_return_journeys:', err.message);
-});
-
 function getRegistrationLocked(cb) {
     db.query('SELECT registration_locked FROM app_settings WHERE id = 1', (err, results) => {
         if (err || !results || results.length === 0) return cb(false);
@@ -304,8 +281,12 @@ function jtPics(d) {
 
 function toJourneyRow(d) {
     const phone = d.staffContact || d.scanByContact || null;
+    let code = Number(d.scanTypeCode);
+    if (!code && d.scanTypeName === '中心到件') code = 110;
+    let typeName = jtTypeName(code, d.scanTypeName);
+    if (code === 110 && /^TTKT/i.test(String(d.scanNetworkName || ''))) typeName = 'Hàng đến TTKT';
     return {
-        scantypename: jtTypeName(Number(d.scanTypeCode), d.scanTypeName),
+        scantypename: typeName,
         scantime: d.scanTime ? String(d.scanTime).replace(' ', 'T') : null,
         scanpost: d.scanNetworkName || null,
         scanward: d.scanNetworkArea || null,
@@ -318,7 +299,21 @@ function toJourneyRow(d) {
     };
 }
 
-async function upsertPartJourneyRow(childBill, t) {
+const partJourneyLocks = new Map();
+function withPartJourneyLock(key, fn) {
+    const prev = partJourneyLocks.get(key) || Promise.resolve();
+    const run = prev.catch(() => {}).then(fn);
+    const tail = run.catch(() => {});
+    partJourneyLocks.set(key, tail);
+    tail.then(() => { if (partJourneyLocks.get(key) === tail) partJourneyLocks.delete(key); });
+    return run;
+}
+
+function upsertPartJourneyRow(childBill, t) {
+    return withPartJourneyLock(childBill, () => upsertPartJourneyRowUnsafe(childBill, t));
+}
+
+async function upsertPartJourneyRowUnsafe(childBill, t) {
     const parentBill = childBill.replace(/-\d{3}$/, '');
     await db.promise().query(
         `INSERT INTO part_return_journeys
@@ -448,25 +443,33 @@ async function syncPartReturnJourney(childBill) {
     }
 }
 
-// Hành trình đơn hoàn 1 phần: đọc từ part_return_journeys (webhook + sync đã ghi sẵn); chỉ gọi J&T khi DB chưa có mốc nào
-async function getPartReturnJourney(childBill) {
-    const saved = await loadPartJourneyFromDb(childBill);
-    if (saved.length > 0) {
-        return { success: true, childBill, trackingData: saved, updatedStatus: null, source: 'db' };
+async function syncPartReturnPhotos(childBill, retriesLeft = 1) {
+    try {
+        const r = await fetchPartReturnTrace(childBill);
+        if (!r.ok) throw new Error(r.message || 'Không lấy được hành trình');
+        const signed = r.sorted.filter(d => [113, 117].includes(Number(d.scanTypeCode)));
+        let withPics = 0;
+        for (const d of signed) {
+            const row = toJourneyRow(d);
+            await upsertPartJourneyRow(childBill, row);
+            if (row.sigpic) withPics++;
+        }
+        logPartReturnEvent('photos', childBill, { signed: signed.length, withPics, retriesLeft });
+        if (withPics === 0 && retriesLeft > 0) {
+            setTimeout(() => syncPartReturnPhotos(childBill, retriesLeft - 1), 2 * 60 * 1000);
+        }
+    } catch (e) {
+        console.error('[Webhook J&T] Lỗi lấy ảnh đơn 1 phần:', e.message);
+        logPartReturnEvent('photos-error', childBill, { message: e.message, retriesLeft });
+        if (retriesLeft > 0) setTimeout(() => syncPartReturnPhotos(childBill, retriesLeft - 1), 2 * 60 * 1000);
     }
-
-    // DB trống (đơn cũ chưa nhận webhook từ lúc deploy): kéo từ J&T một lần để lưu lại
-    const r = await fetchPartReturnTrace(childBill);
-    if (!r.ok) return { success: false, message: r.message };
-    try { await savePartJourneyToDb(childBill, r.trackingData); }
-    catch (e) { console.error('Lỗi lưu hành trình đơn 1 phần:', e.message); }
-    logPartReturnEvent('backfill', childBill, { total: r.trackingData.length, rawCodes: r.rawCodes });
-    const merged = await loadPartJourneyFromDb(childBill);
-
-    return { success: true, childBill, trackingData: merged.length ? merged : r.trackingData, updatedStatus: null, source: 'api' };
 }
 
-// Chạy một lần: kéo bù hành trình + trạng thái từ J&T cho các đơn hoàn 1 phần cũ (chạy nền, tuần tự, log ở logs/partreturn-*.log)
+async function getPartReturnJourney(childBill) {
+    const saved = await loadPartJourneyFromDb(childBill);
+    return { success: true, childBill, trackingData: saved, updatedStatus: null, source: 'db' };
+}
+
 async function backfillPartReturnJourneys(all) {
     if (backfillPartReturnJourneys.running) return { started: false, message: 'Tiến trình kéo bù đang chạy, xem logs/partreturn-*.log' };
     const statusFilter = all ? "status <> 'cancel'" : "status NOT IN ('cancel', 'completed', 'returned')";
@@ -1265,13 +1268,8 @@ app.post('/jtex', function (req, res) {
             });
         }
         
-        if (isPartReturnBill(billCode)) {
-            setTimeout(() => syncPartReturnJourney(billCode), 3000);
-            // Ảnh ký nhận J&T gắn muộn hơn webhook (webhook 113/117 thường có pictureUrl rỗng): đồng bộ lại sau 2 và 10 phút
-            if (scanCode === 113 || scanCode === 117) {
-                setTimeout(() => syncPartReturnJourney(billCode), 2 * 60 * 1000);
-                setTimeout(() => syncPartReturnJourney(billCode), 10 * 60 * 1000);
-            }
+        if (isPartReturnBill(billCode) && (scanCode === 113 || scanCode === 117)) {
+            if (!toJourneyRow(details).sigpic) setTimeout(() => syncPartReturnPhotos(billCode), 3000);
         }
 
         if (scanCode >= 106 && scanCode !== 105) {
