@@ -23,8 +23,8 @@ router.post('/jtex', function (req, res) {
         const details = data.details[0];
         const partSign = Number(details?.partSign?? data?.partSign?? 0)
         if (partSign === 1) {
-            console.log(`[Webhook J&T] KÝ NHẬN 1 PHẦN (partSign=1) - Bill: ${billCode}`);
-            logPartSignToFile(billCode, partSign, details);
+            //console.log(`[Webhook J&T] KÝ NHẬN 1 PHẦN (partSign=1) - Bill: ${billCode}`);
+            //logPartSignToFile(billCode, partSign, details);
             if (!isPartReturnBill(billCode)) createPartReturnOrder(billCode);
         }
         //console.log('nhan wh: '+billCode) //lau lau no ko nhan dc webhook vi chay node app.js chua hieu tai sao
@@ -70,9 +70,7 @@ router.post('/jtex', function (req, res) {
             details.reason || details.abnormalPieceName || null,
             sigpicValue,
         ];
-        if (sigpicValue) {
-            console.log("[Webhook J&T] Nhận " + picsArr.length + " ảnh cho billCode " + billCode);
-        }
+        
         const sqlInsertWaybill = `INSERT INTO jtwaybill
             (billcode, scanbycode, scanbycontact, scanbyname, scanward, scancity, scanprov, scanpost, scantime, scantypename, issuename, sigpic)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`;
@@ -155,7 +153,7 @@ router.post('/jtex', function (req, res) {
             default:
             //console.log(details.scanTypeName);
         }
-
+        
         if (isPartReturnBill(billCode)) {
             logPartReturnEvent('webhook', billCode, {
                 scanTypeCode: details.scanTypeCode, scanTypeName: details.scanTypeName, desc: details.desc,

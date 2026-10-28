@@ -168,7 +168,7 @@ async function createOrderCore(username, input) {
                 const sqlOrder = `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, newward, newprov, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
                 await db.promise().query(sqlOrder, [user.id, matuquan, provider, customer_name, customer_phone, address, product_name, cod, calculatedFee, weight, 'pending', body.data.billCode, cod, ward, district, province, body.data.sortLine, note, newward, newprov]);
                 //GetBillJT(matuquan);//tạm thời ko lấy bill lưu vào DB, bill nó quá nặng
-                console.log(`✅${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}: ${jt_shopname} Lên đơn J&T thành công: ${body.data.billCode}`);
+                //console.log(`✅${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}: ${jt_shopname} Lên đơn J&T thành công: ${body.data.billCode}`);
                 return ({ success: true, message: "Lên đơn J&T thành công", order_code: body.data.billCode });
             } else {
                 return ({ success: false, message: "J&T từ chối: " + body.msg });

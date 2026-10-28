@@ -58,7 +58,6 @@ async function createPartReturnOrder(billCode) {
              LIMIT 1`,
             [childBill, billCode, billCode, childBill]
         );
-        if (r.affectedRows > 0) console.log(`[Webhook J&T] Đã tạo đơn hoàn 1 phần ${childBill} từ đơn ${billCode}`);
     } catch (e) {
         console.error('[Webhook J&T] Lỗi tạo đơn hoàn 1 phần:', e.message);
     }
