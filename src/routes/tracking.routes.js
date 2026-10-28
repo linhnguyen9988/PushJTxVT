@@ -3,7 +3,7 @@ const express = require('express');
 const { db } = require('../lib/db');
 const { getPartReturnJourney, isPartReturnBill, loadPartJourneyFromDb } = require('../services/partReturn');
 const { JT_CONFIG } = require('../config/env');
-const { mapJtStatusFromTrace, md5ToBase64 } = require('../services/jt');
+const { mapJtStatusByCode, md5ToBase64 } = require('../services/jt');
 
 const router = express.Router();
 
@@ -116,7 +116,6 @@ router.post('/api/orders/track-jt/:billCode/refresh', async (req, res) => {
         }
     }
 
-    // Đơn hoàn 1 phần (mã cũ-001): không ghi vào jtwaybill, dùng luồng riêng
     if (isPartReturnBill(billCode)) {
         try {
             return res.json(await getPartReturnJourney(billCode));
@@ -220,7 +219,7 @@ router.post('/api/orders/track-jt/:billCode/refresh', async (req, res) => {
 
         let updatedStatus = null;
         let updatedIssue = null;
-        const mappedStatus = mapJtStatusFromTrace(newest.scanTypeName, newest.desc);
+        const mappedStatus = mapJtStatusByCode(newest.scanTypeCode, newest.scanTypeName, newest.desc);
 
         if (mappedStatus) {
             let updateSql = null;
@@ -251,7 +250,8 @@ router.post('/api/orders/track-jt/:billCode/refresh', async (req, res) => {
                     updateParams = [billCode];
                     break;
                 case 'returning':
-                    updateSql = "UPDATE orders SET status='returning', issue=NULL WHERE realjtbillcode=?";
+                    updateSql = `UPDATE orders SET status='returning', issue=NULL
+                        WHERE realjtbillcode=? AND status NOT IN ('completed','cancel','returned')`;
                     updateParams = [billCode];
                     break;
                 case 'returned':
