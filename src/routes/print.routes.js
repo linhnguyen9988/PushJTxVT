@@ -9,102 +9,6 @@ const { io } = require('../core/server');
 
 const router = express.Router();
 
-router.get('/api/print-order/:id', async (req, res) => {//hiện tại ko xài cái này, 
-    try {
-        const [rows] = await db.promise().query('SELECT * FROM orders WHERE realjtbillcode = ?', [req.params.id]);
-        if (rows.length === 0) return res.status(404).send("Không thấy đơn");
-
-        const order = rows[0];
-        const sort = order.sortLine ? order.sortLine.split('-') : ['', '', '', ''];
-
-        const [users] = await db.promise().query('SELECT * FROM users WHERE id = ?', [order.user_id]);
-        const user = users[0];
-        const barcodeBuffer = await bwipjs.toBuffer({
-            bcid: 'code128',
-            text: order.realjtbillcode,
-            scale: 3,
-            height: 10,
-            includetext: false,
-        });
-        const barcodeBase64 = `data:image/png;base64,${barcodeBuffer.toString('base64')}`;
-
-        const qrBase64 = await QRCode.toDataURL(order.realjtbillcode, {
-            margin: 1,
-            width: 150
-        });
-
-        const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                @page { size: 80mm 80mm; margin: 0; }
-                * { box-sizing: border-box; margin: 0; padding: 0; line-height: 1.1; }
-                body { width: 80mm; height: 80mm; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; }
-                .label-container { width: 76mm; height: 76mm; border: 2px solid #000; display: flex; flex-direction: column; overflow: hidden; background: #fff; }
-                
-                /* Barcode */
-                .section-barcode { height: 14mm; border-bottom: 2px solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1mm 0; }
-                .barcode-img { width: 85%; height: 8mm; }
-                .order-id { font-size: 12px; font-weight: bold; margin-top: 1px; }
-
-                /* Sortline: 620 | B256C03 | 002 */
-                .section-sortline { height: 10mm; border-bottom: 2.5px solid #000; display: grid; grid-template-columns: 1fr 1.5fr 1fr; text-align: center; font-weight: bold; }
-                .sort-item { display: flex; align-items: center; justify-content: center; border-right: 1.5px solid #000; font-size: 20px; }
-                .sort-item:last-child { border-right: none; }
-                .sub-code { font-size: 14px; }
-
-                /* Địa chỉ */
-                .section-addresses { height: 24mm; border-bottom: 1.5px solid #000; padding: 4px; font-size: 11px; display: flex; flex-direction: column; justify-content: space-around; }
-
-                /* Bottom: Note & QR */
-                .section-bottom { height: 20mm; display: grid; grid-template-columns: 1fr 20mm; border-bottom: 2.5px solid #000; }
-                .note-box { padding: 3px; font-size: 9px; font-weight: bold; text-transform: uppercase; border-right: 1.5px solid #000; display: flex; align-items: center; text-align: center; }
-                .qr-box { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-                .qr-img { width: 17mm; height: 17mm; }
-
-                /* COD */
-                .section-cod { flex-grow: 1; padding-left: 8px; display: flex; align-items: center; font-size: 15px; font-weight: bold; }
-            </style>
-        </head>
-        <body>
-            <div class="label-container">
-                <div class="section-barcode">
-                    <img src="${barcodeBase64}" class="barcode-img">
-                    <div class="order-id">${order.realjtbillcode}</div>
-                </div>
-                <div class="section-sortline">
-                    <div class="sort-item">${sort[0]}</div>
-                    <div class="sort-item">${sort[1]}</div>
-                    <div class="sort-item">${sort[2]}</div>
-                </div>
-                <div class="section-addresses">
-                    <div><b>GỬI: ${user.jt_shopname}</b> - ${user.jt_sdt}</div>
-                    <div><b>NHẬN: ${order.customer_name}</b> - ${order.customer_phone}<br>${order.customer_address}</div>
-                </div>
-                <div class="section-bottom">
-                    <div class="note-box">${order.note || 'KHÔNG CHO XEM HÀNG'}<br><br>${order.product_name}</div>
-                    <div class="qr-box">
-                        <img src="${qrBase64}" class="qr-img">
-                    </div>
-                </div>
-                <div class="section-cod">TIỀN THU HỘ: ${Number(order.price).toLocaleString()} VNĐ</div>
-            </div>
-            <script>
-                window.onload = () => {
-                    window.print();
-                    window.onafterprint = () => { window.parent.postMessage('close-print-frame', '*'); };
-                    setTimeout(() => { window.parent.postMessage('close-print-frame', '*'); }, 2000);
-                };
-            </script>
-        </body>
-        </html>`;
-
-        res.send(htmlContent);
-    } catch (err) { res.status(500).send(err.message); }
-});
-
 router.post('/api/print-orders-multi-mobile', isAuth, async (req, res) => {
     try {
         const { ids } = req.body;
@@ -329,7 +233,7 @@ router.post('/api/print-orders-socket', isAuth, async (req, res) => {
                         batchInfo: { current: batchIndex, total: totalBatches, count: batch.length }
                     });
 
-                    console.log(`[Socket Print] User ${userId} — Batch ${batchIndex}/${totalBatches} (${batch.length} tem) — ${clients.size} máy nhận`);
+                    //console.log(`[Socket Print] User ${userId} — Batch ${batchIndex}/${totalBatches} (${batch.length} tem) — ${clients.size} máy nhận`);
                 } catch (batchErr) {
                     console.error(`[Socket Print] Lỗi batch ${batchIndex}:`, batchErr.message);
                     io.to(userRoom).emit("print-error", {
@@ -341,7 +245,7 @@ router.post('/api/print-orders-socket', isAuth, async (req, res) => {
                     await new Promise(r => setTimeout(r, BATCH_DELAY));
                 }
             }
-            console.log(`[Socket Print] User ${userId} — Hoàn tất ${orders.length} tem / ${totalBatches} batch`);
+            //console.log(`[Socket Print] User ${userId} — Hoàn tất ${orders.length} tem / ${totalBatches} batch`);
         })();
 
     } catch (err) {

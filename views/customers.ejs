@@ -184,6 +184,11 @@
                     <label class="form-label small fw-bold">Địa chỉ nhận hàng</label>
                     <textarea id="cust_address" name="address" class="form-control" rows="3" autocomplete="off" placeholder="Số nhà, tên đường, phường/xã..."></textarea>
                     <div id="addr-suggestions" style="display:none; background:#fff; border:1px solid #dee2e6; border-radius:6px; box-shadow:0 4px 16px rgba(0,0,0,0.15);"></div>
+                    <div id="cust_addr_picker"></div>
+                    <div id="cust_addr_msg" class="small mt-1"></div>
+                    <input type="hidden" id="manual_prov" name="manual_prov">
+                    <input type="hidden" id="manual_district" name="manual_district">
+                    <input type="hidden" id="manual_ward" name="manual_ward">
                 </div>
                 <div class="mb-3">
                     <label class="form-label small fw-bold">Nhãn khách hàng</label>
@@ -288,6 +293,7 @@
                             <i class="fas fa-magic"></i> Kiểm tra
                         </button>
                     </div>
+                    <div id="qo_addr_picker"></div>
                     <div id="qo_addr_msg" class="mt-1"></div>
                     <input type="hidden" id="qo_prov" name="province">
                     <input type="hidden" id="qo_district" name="district">
@@ -400,6 +406,7 @@
     <div id="confirm-popup-overlay" class="custom-overlay" style="display:none">...</div>
 
 
+    <script src="/js/jt-address-picker.js"></script>
     <script>
 
         const DB_BASE_PRICE = Number("<%= stats.base_price %>") || 0;
@@ -407,6 +414,7 @@
         function checkAddressChangeQO() {
             const addrInput = document.getElementById('qo_address');
             const btnFix = document.getElementById('btn_fix_addr_qo');
+            qoPicker.hide();
 
             if (addrInput.value.trim().length > 5) {
                 btnFix.classList.remove('d-none');
@@ -445,6 +453,7 @@
 
         function openQuickOrderModal(id, name, phone, address, prov, dist, ward, newward, newprov, tag) {
             document.getElementById('quickOrderForm').reset();
+            qoPicker.hide();
             document.getElementById('qo_vtpShopSection').classList.add('d-none');
 
             const tagBox = document.getElementById('qo-cust-tag-warning');
@@ -488,6 +497,77 @@
             updateQuickFee();
         }
 
+        // Áp vùng J&T đã xác nhận (validate tự động hoặc khách tự chọn) vào modal đặt đơn nhanh.
+        function applyValidatedQO(data) {
+            const btn = document.getElementById('btn_fix_addr_qo');
+            const msg = document.getElementById('qo_addr_msg');
+            document.getElementById('qo_prov').value = data.prov;
+            document.getElementById('qo_district').value = data.district;
+            document.getElementById('qo_ward').value = data.ward;
+            document.getElementById('newward').value = data.newward;
+            document.getElementById('newprov').value = data.newprov;
+
+            const phone = document.getElementById('qo_phone').value;
+            const name = document.getElementById('qo_name').value;
+            const addr = document.getElementById('qo_address').value;
+
+            const actionButtons = document.querySelectorAll(`[data-phone="${phone}"]`);
+
+            actionButtons.forEach(b => {
+                b.dataset.prov = data.prov;
+                b.dataset.dist = data.district;
+                b.dataset.ward = data.ward;
+                b.dataset.newward = data.newward;
+                b.dataset.newprov = data.newprov;
+                const newOnClick = `openQuickOrderModal('', '${name}', '${phone}', '${addr}', '${data.prov}', '${data.district}', '${data.ward}', '${data.newward}', '${data.newprov}', '${b.dataset.tag || ''}')`;
+                b.setAttribute('onclick', newOnClick);
+            });
+
+            btn.classList.add('d-none');
+            msg.innerHTML = `<small class="text-success fw-bold">✅ Chuẩn hóa thành công: ${data.fullStr}<br>${data.newward}, ${data.newprov}</small>`;
+
+            window.shouldReload = true;
+        }
+
+        // 3 ô select Tỉnh/Huyện/Xã (chỉ hiện khi Viettel nhận nhưng J&T không tra được DB)
+        const qoPicker = JtAddressPicker.create(document.getElementById('qo_addr_picker'), {
+            onSelect: confirmPickedQO,
+            onReset: () => {
+                ['qo_prov', 'qo_district', 'qo_ward', 'newward', 'newprov'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.value = '';
+                });
+            }
+        });
+
+        async function confirmPickedQO(sel) {
+            const msg = document.getElementById('qo_addr_msg');
+            msg.innerHTML = '<small class="text-muted"><span class="spinner-border spinner-border-sm"></span> Đang xác nhận vùng đã chọn...</small>';
+            try {
+                const res = await fetch('/api/address/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        address: document.getElementById('qo_address').value,
+                        name: document.getElementById('qo_name').value,
+                        phone: document.getElementById('qo_phone').value,
+                        prov: sel.prov, district: sel.district, ward: sel.ward
+                    })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    applyValidatedQO(result.data);
+                    qoPicker.hide();
+                } else {
+                    msg.innerHTML = '';
+                    showNotice("Lỗi", result.message, "error");
+                }
+            } catch (e) {
+                msg.innerHTML = '';
+                showNotice("Lỗi", "Lỗi kết nối server!", "error");
+            }
+        }
+
         async function validateAddressQO() {
             const addr = document.getElementById('qo_address').value;
             const phone = document.getElementById('qo_phone').value;
@@ -499,6 +579,7 @@
 
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            qoPicker.hide();
 
             try {
                 const res = await fetch('/api/validate-address', {
@@ -510,32 +591,11 @@
                 const result = await res.json();
 
                 if (result.success) {
-                    document.getElementById('qo_prov').value = result.data.prov;
-                    document.getElementById('qo_district').value = result.data.district;
-                    document.getElementById('qo_ward').value = result.data.ward;
-                    document.getElementById('newward').value = result.data.newward;
-                    document.getElementById('newprov').value = result.data.newprov;
-
-                    const phone = document.getElementById('qo_phone').value;
-                    const name = document.getElementById('qo_name').value;
-                    const addr = document.getElementById('qo_address').value;
-
-                    const actionButtons = document.querySelectorAll(`[data-phone="${phone}"]`);
-
-                    actionButtons.forEach(btn => {
-                        btn.dataset.prov = result.data.prov;
-                        btn.dataset.dist = result.data.district;
-                        btn.dataset.ward = result.data.ward;
-                        btn.dataset.newward = result.data.newward;
-                        btn.dataset.newprov = result.data.newprov;
-                        const newOnClick = `openQuickOrderModal('', '${name}', '${phone}', '${addr}', '${result.data.prov}', '${result.data.district}', '${result.data.ward}', '${result.data.newward}', '${result.data.newprov}', '${btn.dataset.tag || ''}')`;
-                        btn.setAttribute('onclick', newOnClick);
-                    });
-
-                    btn.classList.add('d-none');
-                    msg.innerHTML = `<small class="text-success fw-bold">✅ Chuẩn hóa thành công: ${result.data.fullStr}<br>${result.data.newward}, ${result.data.newprov}</small>`;
-
-                    window.shouldReload = true;
+                    applyValidatedQO(result.data);
+                } else if (result.needManual) {
+                    const v = result.viettel || {};
+                    msg.innerHTML = `<small class="text-danger fw-bold">⚠️ J&T chưa nhận diện được vùng này (Viettel hiểu: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}). Chọn lại vùng ở 3 ô phía trên.</small>`;
+                    qoPicker.show(result.hint, 'Chọn vùng giao hàng J&T:');
                 } else {
                     showNotice("Lỗi", result.message, "error");
                 }
@@ -607,6 +667,31 @@
         let isEditMode = false;
         let pendingDeleteId = null;
 
+        // 3 ô select Tỉnh/Huyện/Xã dưới ô địa chỉ của form thêm/sửa khách.
+        // Chỉ hiện khi lưu thất bại vì Viettel nhận nhưng J&T không tra được DB; khách chọn xong thì bấm "Lưu thông tin" lại.
+        const custPicker = JtAddressPicker.create(document.getElementById('cust_addr_picker'), {
+            onSelect: (sel) => {
+                document.getElementById('manual_prov').value = sel.prov;
+                document.getElementById('manual_district').value = sel.district;
+                document.getElementById('manual_ward').value = sel.ward;
+                document.getElementById('cust_addr_msg').innerHTML =
+                    `<span class="text-success fw-bold">✅ Đã chọn: ${sel.ward}, ${sel.district}, ${sel.prov}. Bấm "Lưu thông tin" để hoàn tất.</span>`;
+            },
+            onReset: () => clearManualRegion()
+        });
+
+        function clearManualRegion() {
+            ['manual_prov', 'manual_district', 'manual_ward'].forEach(id => document.getElementById(id).value = '');
+        }
+
+        function resetCustPicker() {
+            custPicker.hide();
+            clearManualRegion();
+            document.getElementById('cust_addr_msg').innerHTML = '';
+        }
+
+        document.getElementById('cust_address').addEventListener('input', resetCustPicker);
+
         function setActiveTagButton(tag) {
             document.querySelectorAll('.cust-tag-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.tag === (tag || ''));
@@ -618,6 +703,7 @@
             isEditMode = false;
             document.getElementById('popup-title').innerText = "Thêm khách hàng mới";
             document.getElementById('customerForm').reset();
+            resetCustPicker();
             document.getElementById('customer_id').value = "";
             setActiveTagButton('');
             document.getElementById('customer-popup-overlay').style.display = 'flex';
@@ -630,6 +716,7 @@
             document.getElementById('cust_name').value = name;
             document.getElementById('cust_phone').value = phone;
             document.getElementById('cust_address').value = address;
+            resetCustPicker();
             setActiveTagButton(tag);
             document.getElementById('customer-popup-overlay').style.display = 'flex';
         }
@@ -675,6 +762,15 @@
                     closePopup();
                     showNotice("Thành công", isEditMode ? `Cập nhật thành công: ${result.xa}, ${result.huyen}, ${result.tinh}` : `Đã thêm khách hàng với địa chỉ: ${result.xa}, ${result.huyen}, ${result.tinh}`, "success");
                     window.shouldReload = true;
+                } else if (result.needManual) {
+                    const v = result.viettel || {};
+                    clearManualRegion();
+                    document.getElementById('cust_addr_msg').innerHTML =
+                        `<span class="text-danger fw-bold">⚠️ J&T chưa nhận diện được vùng này (Viettel hiểu: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}). Chọn lại vùng ở 3 ô phía trên.</span>`;
+                    if (window.hideCustAddrSuggestions) window.hideCustAddrSuggestions();
+                    custPicker.show(result.hint, 'Chọn vùng giao hàng J&T:');
+                    btn.disabled = false;
+                    btn.innerHTML = 'Lưu thông tin';
                 } else {
                     showNotice("Lỗi", result.message || "Có lỗi xảy ra", "error");
                     btn.disabled = false;
@@ -743,6 +839,13 @@
             const box = document.getElementById('addr-suggestions');
             let debounceTimer = null;
             let lastQuery = '';
+            // Khi picker Tỉnh/Huyện/Xã đang hiện, không cho gợi ý địa chỉ bật lại đè lên cho đến khi người dùng gõ tiếp.
+            let suppressSuggest = false;
+            window.hideCustAddrSuggestions = function () {
+                suppressSuggest = true;
+                clearTimeout(debounceTimer);
+                box.style.display = 'none';
+            };
 
             function normalize(str) {
                 return str.toLowerCase()
@@ -813,6 +916,7 @@
                             ? `${streetPart}, ${ward}, ${district}, ${province}`
                             : `${ward}, ${district}, ${province}`;
                         box.style.display = 'none';
+                        resetCustPicker();
                         textarea.focus();
                         textarea.setSelectionRange(textarea.value.length, textarea.value.length);
                     });
@@ -820,6 +924,7 @@
             }
 
             textarea.addEventListener('input', function() {
+                suppressSuggest = false;
                 clearTimeout(debounceTimer);
                 const val = this.value;
                 if (val.length < 2) { box.style.display = 'none'; return; }
@@ -829,7 +934,7 @@
                     try {
                         const res = await fetch('/api/address-suggest?q=' + encodeURIComponent(val));
                         const data = await res.json();
-                        showSuggestions(data);
+                        if (!suppressSuggest) showSuggestions(data);
                     } catch(e) { box.style.display = 'none'; }
                 }, 280);
             });

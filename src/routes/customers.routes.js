@@ -2,8 +2,15 @@ const axios = require('axios');
 const express = require('express');
 const { isAuth } = require('../middleware/auth');
 const { db } = require('../lib/db');
-const { applyAddressFixes, cleanSearchTerm, normalizeSQL } = require('../services/address');
+const { applyAddressFixes, cleanSearchTerm, findJtRowExact, getJtHint, normalizeSQL } = require('../services/address');
 const { createLog } = require('../services/auditLog');
+
+// Vùng J&T do khách tự chọn (khi validate tự động không khớp). Chỉ dùng khi đủ cả 3 trường.
+function pickManualRegion(body) {
+    const { manual_prov, manual_district, manual_ward } = body || {};
+    const ok = [manual_prov, manual_district, manual_ward].every(v => typeof v === 'string' && v.trim() !== '');
+    return ok ? { prov: manual_prov, district: manual_district, ward: manual_ward } : null;
+}
 
 const router = express.Router();
 
@@ -110,6 +117,7 @@ router.get('/customers', isAuth, async (req, res) => {
 
 router.post('/customers/edit', isAuth, async (req, res) => {
     const { id, name, phone, address, tag } = req.body;
+    const manual = pickManualRegion(req.body);
     const username = req.app_user;
 
     const ALLOWED_TAGS = ['bom_hang', 'xa_hang', 'than_thiet'];
@@ -123,6 +131,23 @@ router.post('/customers/edit', isAuth, async (req, res) => {
     }
 
     try {
+        if (manual) {
+            const jt = await findJtRowExact(manual.prov, manual.district, manual.ward);
+            if (!jt) return res.json({ success: false, message: "Vùng đã chọn không có trong dữ liệu J&T!" });
+            const sqlUpdate = `
+                UPDATE customers 
+                SET name = ?, phone = ?, address = ?, prov = ?, district = ?, ward = ?, newward = ?, newprov = ?, tag = ?  
+                WHERE id = ?`;
+            await db.promise().query(sqlUpdate, [name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag, id]);
+            createLog(`Sửa thông tin khách hàng: ${name} (chọn vùng J&T thủ công)`, username);
+            return res.json({
+                success: true,
+                tinh: jt.prov, huyen: jt.district, xa: jt.ward,
+                newward: jt.newward, newprov: jt.newprov,
+                message: `Đã sửa thông tin khách hàng ${name} thành công!`
+            });
+        }
+
         const [tokenRows] = await db.promise().query(
             'SELECT vtp_token FROM viettel_connect WHERE id = 1 LIMIT 1'
         );
@@ -215,6 +240,9 @@ router.post('/customers/edit', isAuth, async (req, res) => {
         } else {
             return res.json({
                 success: false,
+                needManual: true,
+                hint: await getJtHint(tinh, huyen),
+                viettel: { tinh, huyen, xa },
                 message: `J&T không có dữ liệu cho địa chỉ: ${xa} - ${huyen} - ${tinh}.`
             });
         }
@@ -227,6 +255,7 @@ router.post('/customers/edit', isAuth, async (req, res) => {
 
 router.post('/customers/add', isAuth, async (req, res) => {
     const { name, phone, address, tag } = req.body;
+    const manual = pickManualRegion(req.body);
     const username = req.app_user;
 
     const ALLOWED_TAGS = ['bom_hang', 'xa_hang', 'than_thiet'];
@@ -240,6 +269,22 @@ router.post('/customers/add', isAuth, async (req, res) => {
     }
 
     try {
+        if (manual) {
+            const jt = await findJtRowExact(manual.prov, manual.district, manual.ward);
+            if (!jt) return res.json({ success: false, message: "Vùng đã chọn không có trong dữ liệu J&T!" });
+            const sqlInsert = `
+                INSERT INTO customers (user_id, name, phone, address, prov, district, ward, newward, newprov, tag) 
+                VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+            await db.promise().query(sqlInsert, [username, name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag]);
+            createLog(`Đã thêm khách hàng mới: ${name} (chọn vùng J&T thủ công)`, username);
+            return res.json({
+                success: true,
+                tinh: jt.prov, huyen: jt.district, xa: jt.ward,
+                newward: jt.newward, newprov: jt.newprov,
+                message: `Đã thêm khách hàng ${name} thành công!`
+            });
+        }
+
         const [tokenRows] = await db.promise().query(
             'SELECT vtp_token FROM viettel_connect WHERE id = 1 LIMIT 1'
         );
@@ -331,6 +376,9 @@ router.post('/customers/add', isAuth, async (req, res) => {
         } else {
             return res.json({
                 success: false,
+                needManual: true,
+                hint: await getJtHint(tinh, huyen),
+                viettel: { tinh, huyen, xa },
                 message: `Địa chỉ này Viettel hiểu nhưng J&T không có: ${xa} - ${huyen} - ${tinh}.`
             });
         }

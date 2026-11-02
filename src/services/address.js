@@ -121,6 +121,8 @@ function cleanSearchTerm(str) {
     return cleaned
         .replace(/(kcn|phường|xã|quận|huyện|thị xã|thị trấn|tt|tx|thành phố|thi xã|thi trấn|đảo|p.) (?!\d)/gi, "")
         .replace('trấn trấn', '')
+        .replace('`', '')
+        .replace('viên an đông', 'viễn an đông')
         .replace('iapal', 'ia pal')
         .replace('nghìn tường', 'nghinh tường')
         .replace('nam  yang', 'nam yang')
@@ -270,6 +272,93 @@ try {
     console.warn('[Address] Không load được addresses3cap.json:', e.message);
 }
 
+
+// Gợi ý vùng J&T khi J&T không khớp địa chỉ Viettel trả về.
+// Trả về tên tỉnh/huyện đúng như đang lưu trong bảng jtaddress (để đổ thẳng vào ô select).
+// Chỉ khớp tỉnh -> { prov }. Khớp cả huyện -> { prov, district }. Không khớp gì -> {}.
+async function getJtHint(tinh, huyen) {
+    const hint = {};
+    try {
+        const sProv = cleanSearchTerm(tinh);
+        let { sDist } = applyAddressFixes('', cleanSearchTerm(huyen));
+        if (!sProv) return hint;
+
+        const [provRows] = await db.promise().query(
+            `SELECT DISTINCT prov FROM jtaddress
+             WHERE ${normalizeSQL('LOWER(prov)')} LIKE ${normalizeSQL('LOWER(?)')}
+             LIMIT 1`, [`%${sProv}%`]);
+        if (!provRows.length) return hint;
+        hint.prov = provRows[0].prov;
+
+        if (!sDist) return hint;
+        const [distRows] = await db.promise().query(
+            `SELECT DISTINCT district FROM jtaddress
+             WHERE prov = ? AND ${normalizeSQL('LOWER(district)')} LIKE ${normalizeSQL('LOWER(?)')}
+             ORDER BY (LOWER(district) = ?) DESC, LENGTH(district) ASC
+             LIMIT 1`, [hint.prov, `%${sDist}%`, sDist]);
+        if (distRows.length) hint.district = distRows[0].district;
+    } catch (e) {
+        console.error('Lỗi getJtHint:', e.message);
+    }
+    return hint;
+}
+
+// Lấy đúng 1 dòng vùng J&T theo tỉnh/huyện/xã (khớp tuyệt đối với giá trị trong bảng jtaddress).
+async function findJtRowExact(prov, district, ward) {
+    if (![prov, district, ward].every(v => typeof v === 'string' && v.trim() !== '')) return null;
+    const [rows] = await db.promise().query(
+        'SELECT * FROM jtaddress WHERE prov = ? AND district = ? AND ward = ? LIMIT 1',
+        [prov, district, ward]);
+    return rows.length ? rows[0] : null;
+}
+
+// Lưu/cập nhật khách theo (user, phone) — dùng chung cho validate tự động và chọn tay.
+async function saveCustomerAddress(username, { phone, name, address }, jt) {
+    const upsertSql = `
+    INSERT INTO customers (user_id, phone, prov, district, ward, name, address, newward, newprov)
+    SELECT id, ?, ?, ?, ?, ?, ?, ?, ?
+    FROM users 
+    WHERE username = ?
+    ON DUPLICATE KEY UPDATE 
+        address = VALUES(address),
+        prov = VALUES(prov), 
+        district = VALUES(district),
+        ward = VALUES(ward),
+        name = VALUES(name),
+        newward = VALUES(newward),
+        newprov = VALUES(newprov)
+`;
+    await db.promise().query(upsertSql, [
+        phone, jt.prov, jt.district, jt.ward, name, address, jt.newward, jt.newprov, username
+    ]);
+}
+
+function jtRowToData(jt) {
+    return {
+        prov: jt.prov,
+        district: jt.district,
+        ward: jt.ward,
+        newward: jt.newward,
+        newprov: jt.newprov,
+        fullStr: `${jt.ward}, ${jt.district}, ${jt.prov}`
+    };
+}
+
+// Khách tự chọn tỉnh/huyện/xã khi validate tự động thất bại.
+async function confirmAddress(address, name, phone, username, prov, district, ward) {
+    if (!address) return { success: false, message: "Thiếu địa chỉ!" };
+    if (!phone || phone.length != 10) return { success: false, message: "Sai số điện thoại, kiểm tra lại!" };
+    try {
+        const jt = await findJtRowExact(prov, district, ward);
+        if (!jt) return { success: false, message: "Vùng đã chọn không có trong dữ liệu J&T!" };
+        await saveCustomerAddress(username, { phone, name, address }, jt);
+        return { success: true, data: jtRowToData(jt) };
+    } catch (e) {
+        console.error("Lỗi Confirm Address:", e.message);
+        return { success: false, message: "Lỗi kết nối hoặc hệ thống bận!" };
+    }
+}
+
 async function resolveAddress(address, name, phone, username) {
 
     if (!address) return ({ success: false, message: "Thiếu địa chỉ!" });
@@ -338,45 +427,17 @@ async function resolveAddress(address, name, phone, username) {
 
         if (jtRows && jtRows.length > 0) {
             const jt = jtRows[0];
-            const upsertSql = `
-    INSERT INTO customers (user_id, phone, prov, district, ward, name, address, newward, newprov)
-    SELECT id, ?, ?, ?, ?, ?, ?, ?, ?
-    FROM users 
-    WHERE username = ?
-    ON DUPLICATE KEY UPDATE 
-        address = VALUES(address),
-        prov = VALUES(prov), 
-        district = VALUES(district),
-        ward = VALUES(ward),
-        name = VALUES(name),
-        newward = VALUES(newward),
-        newprov = VALUES(newprov)
-`;
-
-            await db.promise().query(upsertSql, [
-                phone,        // 1
-                jt.prov,      // 2
-                jt.district,  // 3
-                jt.ward,      // 4
-                name,         // 5
-                address,      // 6
-                jt.newward,   // 7
-                jt.newprov,   // 8
-                username      // 9 
-            ]);
-            return ({
-                success: true,
-                data: {
-                    prov: jt.prov,
-                    district: jt.district,
-                    ward: jt.ward,
-                    newward: jt.newward,
-                    newprov: jt.newprov,
-                    fullStr: `${jt.ward}, ${jt.district}, ${jt.prov}`
-                }
-            });
+            await saveCustomerAddress(username, { phone, name, address }, jt);
+            return ({ success: true, data: jtRowToData(jt) });
         } else {
-            return ({ success: false, message: "Địa chỉ Viettel hiểu nhưng J&T chưa có dữ liệu vùng này!" });
+            const hint = await getJtHint(tinh, huyen);
+            return ({
+                success: false,
+                needManual: true,
+                hint,
+                viettel: { tinh, huyen, xa },
+                message: "Địa chỉ Viettel hiểu nhưng J&T chưa có dữ liệu vùng này!"
+            });
         }
 
     } catch (e) {
@@ -385,4 +446,4 @@ async function resolveAddress(address, name, phone, username) {
     }
 }
 
-module.exports = { addressData, applyAddressFixes, cleanSearchTerm, isBienHoaWardOpen, normalizeAddr, normalizeSQL, resolveAddress };
+module.exports = { addressData, applyAddressFixes, cleanSearchTerm, confirmAddress, findJtRowExact, getJtHint, isBienHoaWardOpen, jtRowToData, normalizeAddr, normalizeSQL, resolveAddress };

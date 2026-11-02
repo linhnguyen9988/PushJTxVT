@@ -585,6 +585,7 @@ function getBadge(status) {
                                 <i class="fas fa-exclamation-triangle"></i> Kiểm tra
                             </button>
                         </div>
+                        <div id="addr_picker"></div>
                         <input type="hidden" id="cust_prov" name="province">
                         <input type="hidden" id="cust_district" name="district">
                         <input type="hidden" id="cust_ward" name="ward">
@@ -1131,6 +1132,7 @@ function getBadge(status) {
         <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
+        <script src="/js/jt-address-picker.js"></script>
         <script type="application/json" id="customers-data"><%- JSON.stringify(customers || []).replace(/</g, '\\u003c') %></script>
 
         <script>
@@ -1282,6 +1284,8 @@ function autoFillCust(val) {
             if (el) el.value = fieldMap[id] || '';
         }
 
+        if (typeof addrPicker !== 'undefined') addrPicker.hide();
+
         const msg = document.getElementById('addr_status_msg');
         const btnFix = document.getElementById('btn_fix_addr');
         
@@ -1324,6 +1328,69 @@ function autoFillCust(val) {
     }
 }
 
+            // Áp dữ liệu vùng J&T đã xác nhận (từ validate tự động hoặc khách tự chọn) vào form.
+            function applyValidatedAddress(data, phone) {
+                document.getElementById('cust_prov').value = data.prov;
+                document.getElementById('cust_district').value = data.district;
+                document.getElementById('cust_ward').value = data.ward;
+                document.getElementById('newward').value = data.newward;
+                document.getElementById('newprov').value = data.newprov;
+
+                document.getElementById('btn_fix_addr').classList.add('d-none');
+                document.getElementById('addr_status_msg').innerHTML =
+                    `<div class="alert alert-success p-2 mt-2 mb-0 small">
+                        <b>✅ Đã xác nhận địa chỉ:<br>
+                        ${data.ward ? data.ward + ', ' : ''}${data.district}, ${data.prov}<br>
+                        <span class="text-muted">Địa chỉ mới: ${data.newward}, ${data.newprov}</span></b>
+                    </div>`;
+
+                const idx = customerArray.findIndex(c => c.phone === phone);
+                if (idx !== -1) {
+                    customerArray[idx].prov = data.prov;
+                    customerArray[idx].district = data.district;
+                    customerArray[idx].ward = data.ward;
+                    customerArray[idx].newward = data.newward;
+                    customerArray[idx].newprov = data.newprov;
+                }
+            }
+
+            // 3 ô select Tỉnh/Huyện/Xã (chỉ hiện khi validate thất bại: Viettel nhận nhưng J&T không tra được DB)
+            const addrPicker = JtAddressPicker.create(document.getElementById('addr_picker'), {
+                onSelect: confirmPickedAddress,
+                onReset: () => {
+                    ['cust_prov', 'cust_district', 'cust_ward', 'newprov', 'newward'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el) el.value = '';
+                    });
+                }
+            });
+
+            async function confirmPickedAddress(sel) {
+                const addr = document.getElementById('addr_input').value;
+                const name = document.getElementById('name_input').value;
+                const phone = document.getElementById('phone_input').value;
+                const msg = document.getElementById('addr_status_msg');
+                msg.innerHTML = '<div class="small text-muted mt-1"><span class="spinner-border spinner-border-sm"></span> Đang xác nhận vùng đã chọn...</div>';
+                try {
+                    const res = await fetch('/api/address/confirm', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ address: addr, name: name, phone: phone, prov: sel.prov, district: sel.district, ward: sel.ward })
+                    });
+                    const result = await res.json();
+                    if (result.success) {
+                        applyValidatedAddress(result.data, phone);
+                        addrPicker.hide();
+                    } else {
+                        msg.innerHTML = '';
+                        showNotice("Lỗi", result.message, "danger");
+                    }
+                } catch (e) {
+                    msg.innerHTML = '';
+                    showNotice("Lỗi", "Không kết nối được server!", "danger");
+                }
+            }
+
             async function validateAddress() {
                 const addr = document.getElementById('addr_input').value;
                 const name = document.getElementById('name_input').value;
@@ -1334,6 +1401,7 @@ function autoFillCust(val) {
 
                 btn.disabled = true;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang check...';
+                addrPicker.hide();
 
                 try {
                     const res = await fetch('/api/validate-address', {
@@ -1345,29 +1413,16 @@ function autoFillCust(val) {
                     const result = await res.json();
 
                     if (result.success) {
-                        document.getElementById('cust_prov').value = result.data.prov;
-                        document.getElementById('cust_district').value = result.data.district;
-                        document.getElementById('cust_ward').value = result.data.ward;
-                        document.getElementById('newward').value = result.data.newward;
-                        document.getElementById('newprov').value = result.data.newprov;
-
-                        btn.classList.add('d-none');
+                        applyValidatedAddress(result.data, phone);
+                    } else if (result.needManual) {
+                        const v = result.viettel || {};
                         document.getElementById('addr_status_msg').innerHTML =
-                            `<div class="alert alert-success p-2 mt-2 mb-0 small">
-                        <b>✅ Đã xác nhận địa chỉ:<br>
-                        ${result.data.ward ? result.data.ward + ', ' : ''}${result.data.district}, ${result.data.prov}<br>
-                        <span class="text-muted">Địa chỉ mới: ${result.data.newward}, ${result.data.newprov}</span></b>
-                    </div>`;
-
-                        const idx = customerArray.findIndex(c => c.phone === phone);
-                        if (idx !== -1) {
-                            customerArray[idx].prov = result.data.prov;
-                            customerArray[idx].district = result.data.district;
-                            customerArray[idx].ward = result.data.ward;
-                            customerArray[idx].newward = result.data.newward;
-                            customerArray[idx].newprov = result.data.newprov;
-                        }
-
+                            `<div class="alert alert-warning p-2 mt-2 mb-0 small">
+                                <b>⚠️ J&T chưa nhận diện được vùng này.</b><br>
+                                Viettel hiểu: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}.<br>
+                                Bác chọn lại vùng ở 3 ô phía trên (thường chỉ sai xã).
+                            </div>`;
+                        addrPicker.show(result.hint, 'Chọn vùng giao hàng J&T:');
                     } else {
                         showNotice("Lỗi", result.message, "danger");
                     }
@@ -1537,6 +1592,7 @@ function autoFillCust(val) {
                     if (el) el.value = '';
                 });
 
+                addrPicker.hide();
                 const msg = document.getElementById('addr_status_msg');
                 if (msg) msg.innerHTML = '';
                 const btnFix = document.getElementById('btn_fix_addr');
@@ -1562,6 +1618,7 @@ function autoFillCust(val) {
             function checkAddressChange() {
                 const addrInput = document.getElementById('addr_input');
                 const btnFix = document.getElementById('btn_fix_addr');
+                addrPicker.hide();
 
                 if (addrInput.value.trim().length > 5) {
                     btnFix.classList.remove('d-none');

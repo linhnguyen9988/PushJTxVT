@@ -1,5 +1,5 @@
 const express = require('express');
-const { addressData, normalizeAddr, resolveAddress } = require('../services/address');
+const { addressData, confirmAddress, normalizeAddr, resolveAddress } = require('../services/address');
 const { isAuth } = require('../middleware/auth');
 const { db } = require('../lib/db');
 
@@ -40,6 +40,12 @@ router.get('/api/address-suggest', (req, res) => {
 router.post('/api/validate-address', isAuth, async (req, res) => {
     const { address, name, phone } = req.body;
     return res.json(await resolveAddress(address, name, phone, req.app_user));
+});
+
+// Khách tự chọn tỉnh/huyện/xã khi validate tự động thất bại (J&T không khớp vùng Viettel trả về).
+router.post('/api/address/confirm', isAuth, async (req, res) => {
+    const { address, name, phone, prov, district, ward } = req.body;
+    return res.json(await confirmAddress(address, name, phone, req.app_user, prov, district, ward));
 });
 
 router.get('/api/address/provinces', async (req, res) => {
