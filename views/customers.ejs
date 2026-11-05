@@ -594,7 +594,7 @@
                     applyValidatedQO(result.data);
                 } else if (result.needManual) {
                     const v = result.viettel || {};
-                    msg.innerHTML = `<small class="text-danger fw-bold">⚠️ J&T chưa nhận diện được vùng này (Viettel hiểu: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}). Chọn lại vùng ở 3 ô phía trên.</small>`;
+                    msg.innerHTML = `<small class="text-danger fw-bold">⚠️ J&T chưa nhận diện được vùng này (Viettel: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}). Chọn lại vùng ở 3 ô phía trên.</small>`;
                     qoPicker.show(result.hint, 'Chọn vùng giao hàng J&T:');
                 } else {
                     showNotice("Lỗi", result.message, "error");
@@ -766,7 +766,7 @@
                     const v = result.viettel || {};
                     clearManualRegion();
                     document.getElementById('cust_addr_msg').innerHTML =
-                        `<span class="text-danger fw-bold">⚠️ J&T chưa nhận diện được vùng này (Viettel hiểu: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}). Chọn lại vùng ở 3 ô phía trên.</span>`;
+                        `<span class="text-danger fw-bold">⚠️ J&T chưa nhận diện được vùng này (Viettel: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}). Chọn lại vùng ở 3 ô phía trên.</span>`;
                     if (window.hideCustAddrSuggestions) window.hideCustAddrSuggestions();
                     custPicker.show(result.hint, 'Chọn vùng giao hàng J&T:');
                     btn.disabled = false;

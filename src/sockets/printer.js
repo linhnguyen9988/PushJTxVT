@@ -27,7 +27,7 @@ io.on("connection", (socket) => {
                                     const oldSocket = io.sockets.sockets.get(oldSocketId);
                                     if (oldSocket) {
                                         oldSocket.leave(userRoom);
-                                        console.log(`[Socket] Kicked old socket ${oldSocketId} from ${userRoom}`);
+                                        //console.log(`[Socket] Kicked old socket ${oldSocketId} from ${userRoom}`);
                                     }
                                 }
                             }
@@ -49,17 +49,17 @@ io.on("connection", (socket) => {
         for (const room of socket.rooms) {
             if (room.startsWith("USER_ROOM_")) {
                 socket.leave(room);
-                console.log(`[Socket] ${username} rời room ${room}`);
+                //console.log(`[Socket] ${username} rời room ${room}`);
             }
         }
     });
 
     socket.on("disconnect", (reason) => {
-        console.log(`[Socket] Ngắt kết nối: ${socket.id} — lý do: ${reason}`);
+        //console.log(`[Socket] Ngắt kết nối: ${socket.id} — lý do: ${reason}`);
         for (const room of socket.rooms) {
             if (room.startsWith("USER_ROOM_")) {
                 const size = io.sockets.adapter.rooms.get(room)?.size ?? 0;
-                console.log(`[Socket] Room ${room} còn ${size} client`);
+                //console.log(`[Socket] Room ${room} còn ${size} client`);
             }
         }
     });

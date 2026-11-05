@@ -1419,8 +1419,8 @@ function autoFillCust(val) {
                         document.getElementById('addr_status_msg').innerHTML =
                             `<div class="alert alert-warning p-2 mt-2 mb-0 small">
                                 <b>⚠️ J&T chưa nhận diện được vùng này.</b><br>
-                                Viettel hiểu: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}.<br>
-                                Bác chọn lại vùng ở 3 ô phía trên (thường chỉ sai xã).
+                                Viettel: ${[v.xa, v.huyen, v.tinh].filter(Boolean).join(', ')}.<br>
+                                Bạn chọn lại vùng ở 3 ô phía trên (thường chỉ sai xã).
                             </div>`;
                         addrPicker.show(result.hint, 'Chọn vùng giao hàng J&T:');
                     } else {
