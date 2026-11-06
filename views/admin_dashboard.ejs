@@ -3,12 +3,12 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
   :root {
-    --surface: var(--surface-card);
+    --surface: var(--surface-card); /* Admin panel uses card backgrounds for its own blocks. */
     --surface2: var(--ink-100);
     --border: var(--surface-border);
-    --accent: #f0a500;
-    --accent2: #ff5e5b;
-    --accent3: #00d4aa;
+    --accent: var(--brand-500);
+    --accent2: var(--danger);
+    --accent3: var(--success);
     --text: var(--ink-900);
     --muted: var(--ink-500);
     --radius: 14px;
@@ -177,7 +177,7 @@
     flex-shrink: 0;
   }
   .vtp-status.ok .indicator { background: var(--accent3); box-shadow: 0 0 8px var(--accent3); }
-  .vtp-status.warn .indicator { background: #f0a500; box-shadow: 0 0 8px #f0a500; }
+  .vtp-status.warn .indicator { background: var(--brand-500); box-shadow: 0 0 8px rgba(183,130,56,.4); }
   .vtp-status .info { color: var(--muted); font-size: 0.75rem; }
 
   .adm-input {

@@ -1,11 +1,9 @@
-<%- include('partials/header') %>
+<%- include('partials/header', { authArtwork: true }) %>
 
-<div class="auth-wrap d-flex align-items-center justify-content-center">
-    <div class="col-11 col-sm-8 col-md-5 col-lg-4">
-        <div class="text-center mb-4">
-            <img src="/logo.png" alt="TV Ship" style="height: 48px;">
-        </div>
-        <div class="card border-0 shadow-lg p-4 p-md-5">
+<main class="auth-scene" aria-label="Đăng nhập">
+    <div class="auth-panel">
+        <div class="card auth-panel-card">
+            <span class="ui-page-kicker text-center mb-2">Trung tâm giao vận</span>
             <h3 class="text-center fw-bold mb-1">Đăng nhập</h3>
             <p class="text-center text-muted small mb-4">Chào mừng bạn quay lại TV Ship</p>
 
@@ -13,17 +11,17 @@
 
             <form action="/login" method="POST">
                 <div class="mb-3">
-                    <label class="form-label">Tên đăng nhập</label>
+                    <label for="auth-username" class="form-label">Tên đăng nhập</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white border-end-0"><i class="fas fa-user text-muted"></i></span>
-                        <input type="text" name="username" class="form-control border-start-0 ps-0" required>
+                        <input id="auth-username" autocomplete="username" type="text" name="username" class="form-control border-start-0 ps-0" required>
                     </div>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Mật khẩu</label>
+                    <label for="auth-password" class="form-label">Mật khẩu</label>
                     <div class="input-group">
                         <span class="input-group-text bg-white border-end-0"><i class="fas fa-lock text-muted"></i></span>
-                        <input type="password" name="password" class="form-control border-start-0 ps-0" required>
+                        <input id="auth-password" autocomplete="current-password" type="password" name="password" class="form-control border-start-0 ps-0" required>
                     </div>
                 </div>
                 <div class="mb-3 d-flex justify-content-between align-items-center">
@@ -41,7 +39,7 @@
             </div>
         </div>
     </div>
-</div>
+</main>
 
 <div class="modal fade" id="forgotModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -56,8 +54,6 @@
     </div>
 </div>
 
-<style>
-.auth-wrap { min-height: calc(100vh - 90px); padding: 24px 0; }
-</style>
+
 
 <%- include('partials/footer', { active: 'orders' }) %>

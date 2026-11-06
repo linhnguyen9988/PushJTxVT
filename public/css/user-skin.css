@@ -1,0 +1,26 @@
+/* Scoped overrides keep the original bronze skin unchanged by default. */
+html[data-custom-skin] .btn-primary,
+html[data-custom-skin] .ui-header .navbar-nav .nav-link.btn-primary {
+  background: var(--brand-500) !important; border-color: var(--brand-500) !important; color: var(--skin-on) !important;
+}
+html[data-custom-skin] .btn-primary:hover, html[data-custom-skin] .btn-primary:focus,
+html[data-custom-skin] .btn-outline-primary:hover, html[data-custom-skin] .btn-outline-primary:focus,
+html[data-custom-skin] .btn-check:checked + .btn-outline-primary {
+  background: var(--brand-600) !important; border-color: var(--brand-600) !important; color: var(--skin-on-hover) !important;
+}
+html[data-custom-skin] body { background: var(--surface); }
+html[data-custom-skin] .navbar.ui-header { background: var(--skin-deep) !important; border-color: var(--brand-500); }
+html[data-custom-skin] .ui-header::before, html[data-custom-skin] .ui-dashboard-metric::before { background: var(--brand-500); }
+html[data-custom-skin] .ui-header .navbar-nav .nav-link.ui-current,
+html[data-custom-skin] .ui-header .navbar-nav .nav-link:hover,
+html[data-custom-skin] .ui-header .nav-avatar-letter,
+html[data-custom-skin] .ui-theme-switch { color: var(--skin-pale); background: var(--skin-deep); border-color: var(--skin-pale); }
+html[data-custom-skin] .ui-header .brand-symbol,
+html[data-custom-skin] .ui-dashboard-hero { background: var(--skin-deep); border-color: var(--skin-pale); }
+html[data-custom-skin] .ui-header .brand-caption,
+html[data-custom-skin] .ui-dashboard-hero .ui-page-kicker { color: var(--skin-pale); }
+html[data-custom-skin] .ui-header .brand-symbol img { filter: brightness(0) invert(1); }
+html[data-custom-skin] .ui-dashboard-hero::before { background: radial-gradient(circle, rgba(var(--bs-primary-rgb), .23), transparent 70%); }
+html[data-custom-skin] .ui-dashboard-hero::after { border-color: var(--skin-pale); opacity: .14; }
+html[data-custom-skin] .form-control:focus, html[data-custom-skin] .form-select:focus,
+html[data-custom-skin] .form-check-input:focus { box-shadow: 0 0 0 4px rgba(var(--bs-primary-rgb), .18); }

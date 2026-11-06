@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" class="<%= locals.authArtwork ? 'auth-artwork' : '' %>">
 
 <head>
     <meta charset="UTF-8">
@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/lucian-bronze.css">
     <link rel="stylesheet" href="/css/otp-input.css">
     <script src="/js/otp-input.js"></script>
     <script>
@@ -19,6 +20,11 @@
             } catch (e) {}
         })();
     </script>
+    <meta name="tvship-skin" content="<%= locals.skinColor || '#b78238' %>">
+    <meta name="skin-csrf" content="<%= locals.skinCsrf || '' %>">
+    <link rel="stylesheet" href="/css/user-skin.css">
+    <% if (locals.authArtwork) { %><link rel="stylesheet" href="/css/auth-artwork.css"><% } %>
+    <script src="/js/user-skin.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <link rel="icon" type="image/png" href="/logo.png">
@@ -31,7 +37,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0d6efd">
+    <meta name="theme-color" content="#b78238">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 
@@ -43,10 +49,11 @@
 
 <body data-use-socket-print="<%= (typeof use_socket_print !== 'undefined' && use_socket_print == 1) ? 'true' : 'false' %>">
 
-    <nav class="navbar navbar-expand-lg navbar-dark mb-4 d-none d-lg-block py-2">
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4 d-none d-lg-block py-2 ui-header">
         <div class="container-fluid px-md-5">
             <a class="navbar-brand fw-bold d-flex align-items-center" href="/">
-                <img src="/logo.png" alt="Logo" style="height: 36px;">
+                <span class="brand-symbol"><img src="/logo.png" alt="Logo TV Ship"></span>
+                <span class="brand-copy"><span class="brand-name">TV SHIP</span><span class="brand-caption">Shipping workspace</span></span>
             </a>
 
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -75,6 +82,7 @@
                 </ul>
 
                 <div class="navbar-nav align-items-lg-center gap-lg-2">
+                    <button class="ui-theme-switch me-lg-1" type="button" id="uiThemeSwitch" aria-label="Chuyển giao diện sáng hoặc tối" title="Đổi giao diện sáng/tối"><i class="fas fa-moon" aria-hidden="true"></i></button>
                     <% if (locals.user) { %>
 
                         <a class="nav-link d-flex align-items-center px-2" href="/profile">
@@ -105,4 +113,26 @@
     </nav>
 
 
+    <script>
+        (function() {
+            var path = window.location.pathname;
+            document.querySelectorAll('.ui-header a[href]').forEach(function(link) {
+                var target = link.getAttribute('href');
+                if (target && target !== '/' && (path === target || (target === '/admin/orders' && path.indexOf('/admin/orders') === 0))) {
+                    link.classList.add('ui-current'); link.setAttribute('aria-current', 'page');
+                }
+            });
+            var toggle = document.getElementById('uiThemeSwitch');
+            if (!toggle) return;
+            function sync() { toggle.innerHTML = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? '<i class="fas fa-sun" aria-hidden="true"></i>' : '<i class="fas fa-moon" aria-hidden="true"></i>'; }
+            toggle.addEventListener('click', function() {
+                var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+                if (dark) document.documentElement.removeAttribute('data-bs-theme');
+                else document.documentElement.setAttribute('data-bs-theme', 'dark');
+                try { localStorage.setItem('tvship-theme', dark ? 'light' : 'dark'); } catch(e) {}
+                sync();
+            });
+            sync();
+        })();
+    </script>
     <div class="container-fluid flex-grow-1 px-md-5">

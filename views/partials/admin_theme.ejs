@@ -1,22 +1,15 @@
 <style>
   :root {
-    --accent: #f0a500;
-    --accent2: #ff5e5b;
-    --accent3: #00d4aa;
+    --accent: var(--brand-500);
+    --accent2: var(--danger);
+    --accent3: var(--success);
     --surface2: var(--ink-100);
     --border: var(--surface-border);
     --text: var(--ink-900);
     --muted: var(--ink-500);
     --radius: 14px;
 
-    --brand-50:  #fff6e0;
-    --brand-100: #ffecc0;
-    --brand-200: #ffdd8a;
-    --brand-500: var(--accent);
-    --brand-600: #cf8b00;
-    --brand-700: #a86f00;
-    --bs-primary: var(--accent);
-    --bs-primary-rgb: 240, 165, 0;
+    /* Bronze palette now comes from lucian-bronze.css, including dark mode. */
   }
 
   .page-title-adm {
@@ -33,20 +26,20 @@
   }
 
   .btn-primary {
-    color: #1a1300 !important;
+    color: #24180b !important;
     font-weight: 700;
-    box-shadow: 0 2px 6px rgba(240, 165, 0, .3) !important;
+    box-shadow: 0 2px 8px rgba(153, 103, 41, .19) !important;
   }
   .btn-primary:hover, .btn-primary:focus {
-    color: #1a1300 !important;
+    color: #24180b !important;
     opacity: .88;
   }
   .btn-outline-primary:hover {
-    color: #1a1300 !important;
+    color: #24180b !important;
   }
   .btn-check:checked + .btn-outline-primary,
   .btn-check:active + .btn-outline-primary {
-    color: #1a1300 !important;
+    color: #24180b !important;
   }
 
   .table thead th {
@@ -107,7 +100,7 @@
   }
   .form-control:focus, .form-select:focus {
     border-color: var(--accent) !important;
-    box-shadow: 0 0 0 3px rgba(240, 165, 0, .12) !important;
+    box-shadow: 0 0 0 3px rgba(183, 130, 56, .12) !important;
   }
 
   .custom-popup, .custom-popup-content {
@@ -116,20 +109,6 @@
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-thumb { background: var(--ink-300); border-radius: 4px; }
-  .btn-blue-original {
-    background-color: #2f5ee6 !important;
-    border-color: #2f5ee6 !important;
-    color: #fff !important;
-    font-weight: 400;
-    box-shadow: 0 2px 6px rgba(47, 94, 230, .25) !important;
-  }
-  .btn-blue-original:hover, .btn-blue-original:focus {
-    background-color: #244cc7 !important;
-    border-color: #244cc7 !important;
-    color: #fff !important;
-  }
-  .badge-original-blue {
-    --bs-primary: #2f5ee6;
-    --bs-primary-rgb: 47, 94, 230;
-  }
+  .btn-blue-original { background-color: var(--brand-500) !important; border-color: var(--brand-500) !important; color: #fff !important; }
+  .badge-original-blue { --bs-primary: var(--brand-500); --bs-primary-rgb: 183, 130, 56; }
 </style>

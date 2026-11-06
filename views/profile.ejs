@@ -2,6 +2,7 @@
 <%- include('partials/admin_theme') %>
 
     <div class="container py-2">
+        <div class="ui-page-head"><span class="ui-page-kicker">Tài khoản & bảo mật</span><h2 class="page-title-adm mb-0">Hồ sơ cá nhân</h2><p class="ui-page-subtitle">Thông tin tài khoản, bảo mật và tùy chọn của bạn.</p></div>
         <div class="row g-4">
             <div class="col-lg-5 text-center">
                 <div class="card border-0 shadow-sm p-4 mb-4">
@@ -123,6 +124,27 @@
 
                 <div class="card border-0 shadow-sm p-4 text-start mt-4">
                     <h6 class="fw-bold mb-3"><i class="fas fa-circle-half-stroke me-2 text-muted"></i>Giao diện</h6>
+                    <form id="skin-form" class="mb-4">
+                        <label for="skin-color" class="form-label fw-semibold">Màu skin của bạn</label>
+                        <p class="text-muted small">Xem thử ngay trên trang. Bấm Lưu màu để dùng trên mọi thiết bị.</p>
+                        <div class="d-flex gap-2 align-items-center mb-3">
+                            <input id="skin-color" type="color" class="form-control form-control-color" aria-label="Chọn màu skin">
+                            <input id="skin-hex" type="text" class="form-control" maxlength="7" pattern="#[0-9a-fA-F]{6}" aria-label="Mã màu HEX" placeholder="#b78238" required>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mb-3" aria-label="Màu gợi ý">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-skin="#b78238">Vàng đồng</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-skin="#2563eb">Xanh dương</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-skin="#16856b">Xanh ngọc</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-skin="#8747c4">Tím</button>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" id="skin-save" class="btn btn-primary btn-sm">Lưu màu</button>
+                            <button type="button" id="skin-reset" class="btn btn-outline-secondary btn-sm">Về vàng đồng</button>
+                            <button type="button" id="skin-cancel" class="btn btn-link btn-sm">Hủy xem thử</button>
+                        </div>
+                        <p id="skin-status" class="small mt-2 mb-0" role="status" aria-live="polite"></p>
+                    </form>
+                    <script src="/js/skin-picker.js" defer></script>
                     <div class="theme-toggle-row">
                         <div>
                             <div class="fw-semibold" style="font-size:0.9rem;">Chế độ tối (Dark mode)</div>

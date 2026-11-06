@@ -9,7 +9,33 @@ const { upload } = require('../middleware/upload');
 const { generateRecoveryCodes, hashRecoveryCodes, verify2FACode, verifyTotpToken } = require('../services/twofa');
 const { APP_2FA_ISSUER } = require('../config/constants');
 
+const { DEFAULT_SKIN, normalizeSkin } = require('../services/skin');
 const router = express.Router();
+
+router.post('/api/profile/skin', isAuth, async (req, res) => {
+    if (!req.session.skinCsrf || req.get('X-Skin-CSRF') !== req.session.skinCsrf) {
+        return res.status(403).json({ success: false, message: 'Vui lòng tải lại trang và thử lại.' });
+    }
+    const color = normalizeSkin(req.body.color);
+    if (!color) return res.status(400).json({ success: false, message: 'Màu phải có dạng #RRGGBB.' });
+    try {
+        // Identity always comes from the authenticated session, never the request body.
+        const [users] = await db.promise().query('SELECT id FROM users WHERE username = ?', [req.app_user]);
+        if (!users.length) return res.status(404).json({ success: false, message: 'Tài khoản không tồn tại.' });
+        if (color === DEFAULT_SKIN) {
+            await db.promise().query('DELETE FROM user_skins WHERE user_id = ?', [users[0].id]);
+        } else {
+            await db.promise().query(
+                'INSERT INTO user_skins (user_id, color) VALUES (?, ?) ON DUPLICATE KEY UPDATE color = VALUES(color)',
+                [users[0].id, color]
+            );
+        }
+        res.json({ success: true, color });
+    } catch (error) {
+        console.error('Không lưu được skin:', error.code);
+        res.status(500).json({ success: false, message: 'Không lưu được màu. Vui lòng thử lại.' });
+    }
+});
 
 router.get('/profile', async (req, res) => {
     if (!req.app_user) return res.redirect('/login');

@@ -1,11 +1,9 @@
-<%- include('partials/header') %>
+<%- include('partials/header', { authArtwork: true }) %>
 
-<div class="auth-wrap d-flex align-items-center justify-content-center">
-    <div class="col-11 col-sm-9 col-md-6 col-lg-5">
-        <div class="text-center mb-4">
-            <img src="/logo.png" alt="TV Ship" style="height: 48px;">
-        </div>
-        <div class="card border-0 shadow-lg p-4 p-md-5">
+<main class="auth-scene" aria-label="Đăng ký tài khoản">
+    <div class="auth-panel">
+        <div class="card auth-panel-card">
+            <span class="ui-page-kicker text-center mb-2">Bắt đầu với TV Ship</span>
             <h3 class="text-center fw-bold mb-1">Đăng ký tài khoản</h3>
             <p class="text-center text-muted small mb-4">Tạo tài khoản shop để bắt đầu tạo vận đơn</p>
 
@@ -26,20 +24,20 @@
             <form action="/register" method="POST">
                 <fieldset <%= (typeof registrationLocked !== 'undefined' && registrationLocked) ? 'disabled' : '' %>>
                 <div class="mb-3">
-                    <label class="form-label">Số điện thoại</label>
-                    <input type="text" name="username" class="form-control"
+                    <label for="auth-username" class="form-label">Số điện thoại</label>
+                    <input id="auth-username" autocomplete="username" type="text" name="username" class="form-control"
                            placeholder="Nhập tên đăng nhập (>= 4 ký tự)"
                            minlength="4" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Tên shop</label>
-                    <input type="text" name="shopname" class="form-control"
+                    <label for="auth-shopname" class="form-label">Tên shop</label>
+                    <input id="auth-shopname" autocomplete="organization" type="text" name="shopname" class="form-control"
                            placeholder="Nhập tên shop (>= 4 ký tự)"
                            minlength="4" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Mật khẩu</label>
-                    <input type="password" name="password" class="form-control"
+                    <label for="auth-password" class="form-label">Mật khẩu</label>
+                    <input id="auth-password" autocomplete="new-password" type="password" name="password" class="form-control"
                            placeholder="Nhập mật khẩu (>= 4 ký tự)"
                            minlength="4" required>
                 </div>
@@ -51,10 +49,8 @@
             </div>
         </div>
     </div>
-</div>
+</main>
 
-<style>
-.auth-wrap { min-height: calc(100vh - 90px); padding: 24px 0; }
-</style>
+
 
 <%- include('partials/footer', { active: 'orders' }) %>
