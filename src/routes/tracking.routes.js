@@ -2,7 +2,7 @@ const axios = require('axios');
 const express = require('express');
 const { db } = require('../lib/db');
 const { getPartReturnJourney, isPartReturnBill, loadPartJourneyFromDb } = require('../services/partReturn');
-const { JT_CONFIG } = require('../config/env');
+const { getJtCredentialsForOrder } = require('../services/jtAccounts');
 const { mapJtStatusByCode, md5ToBase64 } = require('../services/jt');
 
 const router = express.Router();
@@ -126,15 +126,14 @@ router.post('/api/orders/track-jt/:billCode/refresh', async (req, res) => {
     }
 
     try {
-        const pkey = JT_CONFIG.pkey;
-        const apiAccount = JT_CONFIG.apiAccount;
+        const { pkey, apiAccount, customerCode, password } = await getJtCredentialsForOrder(billCode, { byBillCode: true });
 
         const oderjson = JSON.stringify(
             {
                 "billCodes": billCode,
                 "txlogisticId": "",
-                "customerCode": JT_CONFIG.customerCode,
-                "password": JT_CONFIG.password,
+                "customerCode": customerCode,
+                "password": password,
             });
         const digest = md5ToBase64(oderjson + pkey);
 

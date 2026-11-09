@@ -1,0 +1,44 @@
+/* Cards remain in the original dashboard column; respond to its actual width. */
+.user-management { container-type: inline-size; }
+.user-management .user-management-header { gap: 16px; flex-wrap: wrap; }
+.user-management-header h6 { flex-wrap: wrap; }
+.user-count { color: var(--muted); font-weight: 400; }
+.user-management-search { display: flex; gap: 8px; min-width: 0; }
+.user-management-search .adm-input { width: 240px; min-width: 0; padding: 8px 12px; }
+.user-management-search button { min-height: 44px; }
+.user-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; padding: 20px; }
+.user-management-card { min-width: 0; display: flex; flex-direction: column; background: var(--surface-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.user-management-card.is-locked { border-color: var(--accent2); }
+.user-card-header { padding: 18px; display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+.user-card-identity { display: flex; align-items: center; flex: 1 1 140px; min-width: 0; }
+.user-card-names { min-width: 0; overflow-wrap: anywhere; }
+.user-card-identity .user-avatar { width: 42px; height: 42px; flex-shrink: 0; }
+.user-card-identity .user-name { font-weight: 700; }
+.user-card-status { flex: 0 0 auto; }
+.user-card-section { padding: 16px 18px; }
+.user-card-section + .user-card-section { border-top: 1px solid var(--border); }
+.user-card-section-title { font-size: .73rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+.user-management-card .price-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.user-management-card .price-row { display: flex; flex-direction: column; align-items: stretch; gap: 5px; min-width: 0; }
+.user-management-card .price-row label { width: auto; font-size: .72rem; }
+.user-management-card .price-input { width: 100%; min-width: 0; min-height: 44px; padding: 8px 6px; font-size: .85rem; }
+.user-management-card .btn-save-price { grid-column: 1 / -1; min-height: 44px; margin-top: 4px; }
+.user-management-card .adm-select { min-height: 44px; max-width: 100%; text-overflow: ellipsis; }
+.user-management-card .btn-ghost { min-height: 44px; justify-content: center; white-space: normal; }
+.user-card-footer { margin-top: auto; padding: 14px 18px; border-top: 1px solid var(--border); background: var(--surface2); }
+.user-card-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.user-card-actions > button { width: 100%; }
+.user-cards-empty { text-align: center; padding: 36px 20px; color: var(--muted); }
+@container (min-width: 600px) { .user-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 920px) { .user-cards-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 767.98px) {
+  .user-cards-grid { padding: 12px; gap: 14px; }
+  .user-management .user-management-header { align-items: stretch; }
+  .user-management-search { width: 100%; }
+  .user-management-search .adm-input { flex: 1; width: 100%; }
+}
+@media (max-width: 359.98px) {
+  .user-card-header, .user-card-section { padding: 14px 12px; }
+  .user-card-footer { padding: 12px; }
+  .user-card-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

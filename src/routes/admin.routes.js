@@ -5,6 +5,7 @@ const { isAdmin, isManager } = require('../middleware/auth');
 const { require2FA } = require('../middleware/require2fa');
 const { db } = require('../lib/db');
 const { createLog } = require('../services/auditLog');
+const { addJtAccount, listJtAccounts, setDefaultJtAccount } = require('../services/jtAccounts');
 const { getRegistrationLocked } = require('../services/settings');
 const { backfillPartReturnJourneys } = require('../services/partReturn');
 const { sslRenewer } = require('../core/server');
@@ -103,12 +104,53 @@ router.post('/admin/bienhoa-wards/save', isAdmin, require2FA, async (req, res) =
     }
 });
 
+router.post('/admin/jt-accounts', isAdmin, require2FA, async (req, res) => {
+    const code = typeof req.body.customer_code === 'string' ? req.body.customer_code.trim() : '';
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(code)) {
+        return res.status(400).json({ success: false, message: 'Mã khách hàng J&T không hợp lệ.' });
+    }
+    if (!process.env.JT_KEY) {
+        return res.status(400).json({ success: false, message: 'Server chưa cấu hình JT_KEY.' });
+    }
+    try {
+        await addJtAccount(code);
+        createLog(`Thêm tài khoản J&T: ${code}`, req.app_user);
+        return res.json({ success: true });
+    } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ success: false, message: 'Mã khách hàng này đã có trong danh sách.' });
+        }
+        console.error('Lỗi thêm tài khoản J&T:', error.code || error.message);
+        return res.status(500).json({ success: false, message: 'Không lưu được tài khoản J&T.' });
+    }
+});
+
+router.post('/admin/jt-accounts/default', isAdmin, require2FA, async (req, res) => {
+    const id = String(req.body.account_id ?? '');
+    if (!/^[1-9][0-9]{0,18}$/.test(id)) {
+        return res.status(400).json({ success: false, message: 'Tài khoản J&T không hợp lệ.' });
+    }
+    if (!process.env.JT_KEY) {
+        return res.status(400).json({ success: false, message: 'Server chưa cấu hình JT_KEY.' });
+    }
+    try {
+        if (!await setDefaultJtAccount(id)) {
+            return res.status(404).json({ success: false, message: 'Không tìm thấy tài khoản J&T.' });
+        }
+        createLog(`Đổi tài khoản mặc định J&T sang ID ${id}`, req.app_user);
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Lỗi đổi tài khoản mặc định J&T:', error.code || error.message);
+        return res.status(500).json({ success: false, message: 'Không đổi được tài khoản mặc định J&T.' });
+    }
+});
+
 router.get('/admin/dashboard', isAdmin, async (req, res) => {
     const search = req.query.search || '';
     const currentUser = req.app_user;
 
     try {
-        const [usersRows, statsRows, logsRows, vtpRows, settingsRows, todayStatsRows, admin2FARows] = await Promise.all([
+        const [usersRows, statsRows, logsRows, vtpRows, settingsRows, todayStatsRows, admin2FARows, jtAccounts] = await Promise.all([
             db.promise().query(
                 "SELECT * FROM users WHERE username LIKE ? AND username != ?",
                 [`%${search}%`, currentUser]
@@ -129,7 +171,8 @@ router.get('/admin/dashboard', isAdmin, async (req, res) => {
                 GROUP BY u.id
                 ORDER BY total_orders DESC
             `),
-            db.promise().query("SELECT totp_enabled FROM users WHERE username = ?", [currentUser])
+            db.promise().query("SELECT totp_enabled FROM users WHERE username = ?", [currentUser]),
+            listJtAccounts()
         ]);
 
         res.render('admin_dashboard', {
@@ -138,6 +181,8 @@ router.get('/admin/dashboard', isAdmin, async (req, res) => {
             logs: logsRows[0],
             search: search,
             vtpConfig: vtpRows[0][0] || null,
+            jtAccounts,
+            jtKeyConfigured: Boolean(process.env.JT_KEY),
             registrationLocked: !!(settingsRows[0][0] && settingsRows[0][0].registration_locked),
             todayStats: todayStatsRows[0],
             currentRole: req.app_role,

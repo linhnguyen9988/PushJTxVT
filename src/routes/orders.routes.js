@@ -7,7 +7,8 @@ const { isAuth } = require('../middleware/auth');
 const { createOrderCore } = require('../services/orders');
 const { BULK_COLUMNS, BULK_MAX_ROWS, buildBulkTemplate, normalizeBulkRow, parseBulkWorkbook, uploadBulkExcel } = require('../services/bulkOrders');
 const { resolveAddress } = require('../services/address');
-const { GHN_CONFIG, JT_CONFIG } = require('../config/env');
+const { GHN_CONFIG } = require('../config/env');
+const { getJtCredentialsForOrder } = require('../services/jtAccounts');
 const { md5ToBase64 } = require('../services/jt');
 
 const router = express.Router();
@@ -389,11 +390,10 @@ router.post('/api/orders/cancel', isAuth, async (req, res) => {
             return res.json({ success: false, message: response.data.message || "Viettel từ chối hủy" });
 
         } else if (provider === "J&T") {
-            const pkey = JT_CONFIG.pkey;
-            const apiAccount = JT_CONFIG.apiAccount;
+            const { pkey, apiAccount, customerCode, password } = await getJtCredentialsForOrder(order_code);
             const oderjson = JSON.stringify({
-                "customerCode": JT_CONFIG.customerCode,
-                "password": JT_CONFIG.password,
+                "customerCode": customerCode,
+                "password": password,
                 "txlogisticId": order_code,
                 "reason": "Shop hủy đơn"
             });

@@ -1,0 +1,37 @@
+<section class="adm-card" aria-labelledby="jt-account-heading">
+  <div class="adm-card-header">
+    <h6 id="jt-account-heading"><span class="dot" style="background:var(--accent2)"></span> Tài khoản J&amp;T</h6>
+  </div>
+  <div class="adm-card-body">
+    <% if (!jtAccounts.length) { %>
+      <p class="text-muted small mb-3">Chưa thêm tài khoản. Đơn mới đang dùng cấu hình J&amp;T hiện tại.</p>
+    <% } else { %>
+      <ul class="list-unstyled mb-3">
+        <% jtAccounts.forEach(account => { %>
+          <li class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 border-bottom">
+            <strong class="small text-break"><%= account.customer_code %></strong>
+            <% if (account.is_default) { %>
+              <span class="badge-status active">Mặc định</span>
+            <% } else { %>
+              <form action="/admin/jt-accounts/default" method="post" onsubmit="submitJtAccount(event)">
+                <input type="hidden" name="account_id" value="<%= account.id %>">
+                <button type="submit" class="btn-ghost" <%= jtKeyConfigured ? '' : 'disabled' %>>Đặt mặc định</button>
+              </form>
+            <% } %>
+          </li>
+        <% }); %>
+      </ul>
+    <% } %>
+    <% if (!jtKeyConfigured) { %>
+      <p class="text-warning-emphasis small mb-2">Cần cấu hình JT_KEY trên server.</p>
+    <% } %>
+    <details>
+      <summary class="fw-semibold mb-2">Thêm tài khoản J&amp;T</summary>
+      <form action="/admin/jt-accounts" method="post" onsubmit="submitJtAccount(event)">
+        <label for="jt-customer-code" class="adm-label">Mã khách hàng (customer_code)</label>
+        <input id="jt-customer-code" name="customer_code" class="adm-input mb-2" type="text" autocomplete="off" maxlength="64" required>
+        <button type="submit" class="btn-accent w-100" <%= jtKeyConfigured ? '' : 'disabled' %>>Lưu tài khoản</button>
+      </form>
+    </details>
+  </div>
+</section>

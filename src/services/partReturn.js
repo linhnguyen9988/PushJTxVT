@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { db } = require('../lib/db');
-const { JT_CONFIG } = require('../config/env');
+const { getJtCredentialsForOrder } = require('./jtAccounts');
 const { jtPics, mapJtStatusByCode, md5ToBase64, toJourneyRow } = require('./jt');
 const { logPartReturnEvent } = require('../lib/logger');
 
@@ -50,8 +50,8 @@ async function createPartReturnOrder(billCode) {
     try {
         await db.promise().query('UPDATE orders SET part_sign = 1 WHERE realjtbillcode = ?', [billCode]);
         const [r] = await db.promise().query(
-            `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, newward, newprov, parent_billcode, created_at)
-             SELECT p.user_id, CONCAT(p.order_code, '-001'), p.provider, p.customer_name, p.customer_phone, p.customer_address, p.product_name, 0, 0, p.weight, 'returning', ?, 0, p.jt_ward, p.jt_district, p.jt_prov, p.sortLine, p.note, p.newward, p.newprov, ?, NOW()
+            `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, newward, newprov, parent_billcode, jt_account_id, created_at)
+             SELECT p.user_id, CONCAT(p.order_code, '-001'), p.provider, p.customer_name, p.customer_phone, p.customer_address, p.product_name, 0, 0, p.weight, 'returning', ?, 0, p.jt_ward, p.jt_district, p.jt_prov, p.sortLine, p.note, p.newward, p.newprov, ?, p.jt_account_id, NOW()
              FROM orders p
              WHERE p.realjtbillcode = ?
                AND NOT EXISTS (SELECT 1 FROM orders c WHERE c.realjtbillcode = ?)
@@ -64,13 +64,12 @@ async function createPartReturnOrder(billCode) {
 }
 
 async function fetchPartReturnTrace(childBill) {
-    const pkey = JT_CONFIG.pkey;
-    const apiAccount = JT_CONFIG.apiAccount;
+    const { pkey, apiAccount, customerCode, password } = await getJtCredentialsForOrder(childBill.replace(/-\d{3}$/, ''), { byBillCode: true });
     const oderjson = JSON.stringify({
         "billCodes": childBill,
         "txlogisticId": "",
-        "customerCode": JT_CONFIG.customerCode,
-        "password": JT_CONFIG.password,
+        "customerCode": customerCode,
+        "password": password,
     });
     const digest = md5ToBase64(oderjson + pkey);
     const params = new URLSearchParams();

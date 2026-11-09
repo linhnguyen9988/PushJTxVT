@@ -1,4 +1,5 @@
 <%- include('partials/header') %>
+<link rel="stylesheet" href="/css/admin-user-cards.css">
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400..700;1,400..700&family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap');
@@ -475,6 +476,8 @@
         </div>
       </div>
 
+      <%- include('partials/admin_jt_accounts') %>
+
       <div class="adm-card">
         <div class="adm-card-header">
           <h6><span class="dot" style="background:var(--accent2)"></span> Đăng ký tài khoản</h6>
@@ -573,105 +576,19 @@
         </div>
       </div>
 
-      <div class="adm-card">
-        <div class="adm-card-header">
-          <h6><span class="dot" style="background:var(--accent3)"></span> Quản lý người dùng</h6>
-          <form action="/admin/dashboard" method="GET" style="display:flex;gap:8px;">
-            <input type="text" name="search" class="adm-input" style="width:200px;padding:6px 12px;" placeholder="Tìm user..." value="<%= search %>">
-            <button type="submit" class="btn-accent">Tìm</button>
-          </form>
-        </div>
 
-        <div style="overflow-x:auto;">
-          <table class="adm-table">
-            <thead>
-              <tr>
-                <th>Người dùng</th>
-                <th>Giá cước</th>
-                <th>Trạng thái</th>
-                <th>Kho VTP</th>
-                <th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody>
-              <% users.forEach(row => { %>
-              <tr class="<%= row.is_locked ? 'locked' : '' %>">
-                <td>
-                  <div style="display:flex;align-items:center;">
-                    <img src="<%= row.avatar || '/default-avatar.png' %>" class="user-avatar" alt="">
-                    <div>
-                      <div class="user-name"><%= row.username %></div>
-                      <div class="user-sub"><%= row.shopname || '—' %></div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <% if (currentRole === 'admin') { %>
-                  <div class="price-group">
-                    <div class="price-row">
-                      <label>KG</label>
-                      <input type="number" class="price-input base-weight" data-id="<%= row.id %>" value="<%= Math.floor(row.base_weight || 2) %>">
-                    </div>
-                    <div class="price-row">
-                      <label>Gốc</label>
-                      <input type="number" class="price-input base-price" data-id="<%= row.id %>" value="<%= Math.floor(row.base_price || 20000) %>">
-                    </div>
-                    <div class="price-row">
-                      <label>Bước</label>
-                      <input type="number" class="price-input step-price" data-id="<%= row.id %>" value="<%= Math.floor(row.step_price || 5000) %>">
-                    </div>
-                    <button class="btn-save-price" data-id="<%= row.id %>" onclick="updateUserPrice(parseInt(this.dataset.id))">
-                      <i class="fas fa-save me-1"></i> Lưu giá
-                    </button>
-                  </div>
-                  <% } else { %>
-                  <div style="font-size:0.8rem;color:var(--muted);">
-                    <div>Gốc: <strong style="color:var(--text)"><%= Math.floor(row.base_price || 20000).toLocaleString('vi-VN') %>đ</strong></div>
-                    <div>Bước: <strong style="color:var(--text)"><%= Math.floor(row.step_price || 5000).toLocaleString('vi-VN') %>đ</strong></div>
-                  </div>
-                  <% } %>
-                </td>
-                <td>
-                  <span class="badge-status <%= row.is_locked ? 'locked' : 'active' %>">
-                    <span style="width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;"></span>
-                    <%= row.is_locked ? 'Bị khóa' : 'Hoạt động' %>
-                  </span>
-                </td>
-                <td style="min-width:170px;">
-                  <select class="adm-select vtp-shop-select" data-user-id="<%= row.id %>" data-current-id="<%= row.vtp_inventory_id %>" onchange="handleShopChange(this)">
-                    <option value="">— Chọn kho VTP —</option>
-                  </select>
-                  <button class="btn-ghost mt-1" style="width:100%;justify-content:center;" data-row='<%- JSON.stringify(row) %>' onclick="openAdminJTModal(JSON.parse(this.dataset.row))">
-                    <i class="fas fa-warehouse"></i> Set kho J&T
-                  </button>
-                </td>
-                <td>
-                  <div style="display:flex;flex-direction:column;gap:6px;">
-                    <button class="btn-ghost" data-id="<%= row.id %>" data-username="<%= row.username %>" onclick="openExportModal(parseInt(this.dataset.id), this.dataset.username)">
-                      <i class="fas fa-file-export"></i> Xuất đơn
-                    </button>
-                    <form id="lock-form-<%= row.id %>" action="/admin/toggle-lock/<%= row.id %>" method="POST" style="margin:0;">
-                      <input type="hidden" name="totpCode" id="lock-totp-<%= row.id %>">
-                      <button type="button" onclick="submitWith2FA('lock-form-<%= row.id %>','lock-totp-<%= row.id %>')" class="btn-ghost <%= row.is_locked ? '' : 'danger' %>" style="width:100%;justify-content:center;">
-                        <i class="fas fa-<%= row.is_locked ? 'lock-open' : 'lock' %>"></i>
-                        <%= row.is_locked ? 'Mở khóa' : 'Khóa' %>
-                      </button>
-                    </form>
-                    <form id="delete-form-<%= row.id %>" action="/admin/delete/<%= row.id %>" method="POST" style="margin:0;">
-                      <input type="hidden" name="totpCode" id="delete-totp-<%= row.id %>">
-                      <button type="button" onclick="if(confirm('Xóa vĩnh viễn user này?')) submitWith2FA('delete-form-<%= row.id %>','delete-totp-<%= row.id %>')" class="btn-ghost danger" style="width:100%;justify-content:center;">
-                        <i class="fas fa-trash"></i> Xóa
-                      </button>
-                    </form>
-                  </div>
-                </td>
-              </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
+        <section class="adm-card user-management" aria-labelledby="user-management-title">
+          <div class="adm-card-header user-management-header">
+            <h6 id="user-management-title"><span class="dot" style="background:var(--accent3)"></span> Quản lý người dùng <span class="user-count">(<%= users.length %>)</span></h6>
+            <form action="/admin/dashboard" method="GET" class="user-management-search" role="search">
+              <label class="visually-hidden" for="user-search">Tìm người dùng</label>
+              <input id="user-search" type="search" name="search" class="adm-input" placeholder="Tìm người dùng..." value="<%= search %>">
+              <button type="submit" class="btn-accent">Tìm</button>
+            </form>
+          </div>
+          <%- include('partials/admin_user_cards') %>
+        </section>
     </div>
   </div>
 </div>
@@ -1039,6 +956,33 @@
       showNotice('Lỗi', 'Lỗi kết nối server.', 'danger');
     } finally {
       btn.disabled = false;
+    }
+  }
+
+  async function submitJtAccount(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    if (!ADMIN_2FA_ENABLED) {
+      showNotice('Cần bật 2FA', 'Bật xác thực 2 lớp trong Trang cá nhân để quản lý tài khoản J&T.', 'warning');
+      return;
+    }
+    button.disabled = true;
+    try {
+      const totpCode = await open2FAModal();
+      if (!totpCode) return;
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...Object.fromEntries(new FormData(form)), totpCode })
+      });
+      const result = await response.json();
+      if (response.ok && result.success) location.reload();
+      else showNotice('Không lưu được', result.message || 'Vui lòng thử lại.', 'danger');
+    } catch (error) {
+      showNotice('Lỗi', 'Không kết nối được với máy chủ.', 'danger');
+    } finally {
+      button.disabled = false;
     }
   }
 

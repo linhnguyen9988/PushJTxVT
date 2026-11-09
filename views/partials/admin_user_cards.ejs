@@ -1,0 +1,81 @@
+<% if (!users.length) { %>
+  <div class="user-cards-empty"><i class="fas fa-users mb-2" aria-hidden="true"></i><p class="mb-0">Không tìm thấy người dùng phù hợp.</p></div>
+<% } %>
+<div class="user-cards-grid">
+<% users.forEach(row => { %>
+  <article class="user-management-card <%= row.is_locked ? 'is-locked' : '' %>" aria-labelledby="user-title-<%= row.id %>">
+    <header class="user-card-header">
+
+                  <div class="user-card-identity">
+                    <img src="<%= row.avatar || '/default-avatar.png' %>" class="user-avatar" alt="">
+                    <div class="user-card-names">
+                      <div id="user-title-<%= row.id %>" class="user-name"><%= row.username %></div>
+                      <div class="user-sub"><%= row.shopname || '—' %></div>
+                    </div>
+                  </div>
+
+      <div class="user-card-status">
+                  <span class="badge-status <%= row.is_locked ? 'locked' : 'active' %>">
+                    <span style="width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;"></span>
+                    <%= row.is_locked ? 'Bị khóa' : 'Hoạt động' %>
+                  </span>
+                </div>
+    </header>
+    <section class="user-card-section">
+      <h6 class="user-card-section-title">Giá cước</h6>
+
+                  <% if (currentRole === 'admin') { %>
+                  <div class="price-group">
+                    <div class="price-row">
+                      <label for="base-weight-<%= row.id %>">KG gốc</label>
+                      <input type="number" id="base-weight-<%= row.id %>" class="price-input base-weight" data-id="<%= row.id %>" value="<%= Math.floor(row.base_weight || 2) %>">
+                    </div>
+                    <div class="price-row">
+                      <label for="base-price-<%= row.id %>">Giá gốc</label>
+                      <input type="number" id="base-price-<%= row.id %>" class="price-input base-price" data-id="<%= row.id %>" value="<%= Math.floor(row.base_price || 20000) %>">
+                    </div>
+                    <div class="price-row">
+                      <label for="step-price-<%= row.id %>">Giá bước</label>
+                      <input type="number" id="step-price-<%= row.id %>" class="price-input step-price" data-id="<%= row.id %>" value="<%= Math.floor(row.step_price || 5000) %>">
+                    </div>
+                    <button class="btn-save-price" data-id="<%= row.id %>" onclick="updateUserPrice(parseInt(this.dataset.id))">
+                      <i class="fas fa-save me-1"></i> Lưu giá
+                    </button>
+                  </div>
+                  <% } else { %>
+                  <div style="font-size:0.8rem;color:var(--muted);">
+                    <div>KG gốc: <strong style="color:var(--text)"><%= Math.floor(row.base_weight || 2) %> kg</strong></div>
+                    <div>Gốc: <strong style="color:var(--text)"><%= Math.floor(row.base_price || 20000).toLocaleString('vi-VN') %>đ</strong></div>
+                    <div>Bước: <strong style="color:var(--text)"><%= Math.floor(row.step_price || 5000).toLocaleString('vi-VN') %>đ</strong></div>
+                  </div>
+                  <% } %>
+
+    </section>
+    <section class="user-card-section">
+      <h6 class="user-card-section-title">Kho vận chuyển</h6>
+
+                  <select id="vtp-shop-<%= row.id %>" aria-label="Chọn kho Viettel Post" class="adm-select vtp-shop-select" data-user-id="<%= row.id %>" data-current-id="<%= row.vtp_inventory_id %>" onchange="handleShopChange(this)">
+                    <option value="">— Chọn kho VTP —</option>
+                  </select>
+                  <button class="btn-ghost mt-1" style="width:100%;justify-content:center;" data-row="<%= JSON.stringify(row) %>" onclick="openAdminJTModal(JSON.parse(this.dataset.row))">
+                    <i class="fas fa-warehouse"></i> Set kho J&T
+                  </button>
+
+    </section>
+    <footer class="user-card-footer">
+                  <div class="user-card-actions">
+                    <button class="btn-ghost" data-id="<%= row.id %>" data-username="<%= row.username %>" onclick="openExportModal(parseInt(this.dataset.id), this.dataset.username)">
+                      <i class="fas fa-file-export"></i> Xuất đơn
+                    </button>
+                    <form id="lock-form-<%= row.id %>" action="/admin/toggle-lock/<%= row.id %>" method="POST" style="margin:0;">
+                      <input type="hidden" name="totpCode" id="lock-totp-<%= row.id %>">
+                      <button type="button" onclick="submitWith2FA('lock-form-<%= row.id %>','lock-totp-<%= row.id %>')" class="btn-ghost <%= row.is_locked ? '' : 'danger' %>" style="width:100%;justify-content:center;">
+                        <i class="fas fa-<%= row.is_locked ? 'lock-open' : 'lock' %>"></i>
+                        <%= row.is_locked ? 'Mở khóa' : 'Khóa' %>
+                      </button>
+                    </form>
+                  </div>
+                </footer>
+  </article>
+<% }) %>
+</div>

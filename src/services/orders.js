@@ -1,13 +1,19 @@
 const axios = require('axios');
 const { db } = require('../lib/db');
 const { isBienHoaWardOpen } = require('./address');
-const { GHN_CONFIG, JT_CONFIG } = require('../config/env');
+const { getDefaultJtCredentials } = require('./jtAccounts');
+const { GHN_CONFIG } = require('../config/env');
 const { md5ToBase64 } = require('./jt');
 
 function isNumeric(n) {
     return !isNaN(parseFloat(n)) && isFinite(n);
 }
-
+function normalizeMoney(v) {
+    const s = String(v ?? '0').trim();
+    if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return s.replace(/[.,]/g, '');
+    const n = Number(s.replace(',', '.'));
+    return Number.isFinite(n) && n >= 0 ? String(Math.round(n)) : '0';
+}
 async function createOrderCore(username, input) {
     const {
         provider, customer_name, customer_phone, address, product_name, weight,
@@ -28,6 +34,7 @@ async function createOrderCore(username, input) {
     if (!isNumeric(cod)) {
         cod = 0;
     }
+    const codStr = normalizeMoney(cod);
     const typecod = Number(cod) > 0 ? 3 : 1;
 
     try {
@@ -121,18 +128,21 @@ async function createOrderCore(username, input) {
                 xa = newward;
                 huyen = '';
             }
-            const pkey = JT_CONFIG.pkey;
-            const apiAccount = JT_CONFIG.apiAccount;
+            const { id: jtAccountId, pkey, apiAccount, customerCode, password } = await getDefaultJtCredentials();
+            const codAmount = Number(codStr);
+            const hasCod = codAmount > 0;
+            const goodsValue = hasCod ? codAmount : 100000;
+            const partSign = hasCod ? is_partial_delivery : 0;
             const matuquan = "TV" + Date.now();
             if (!jt_sdt || !jt_shopname || !jt_shopaddress) return ({ success: false, message: "Thiếu thông tin người gửi J&T!" });
             const oderjson = JSON.stringify({
-                "customerCode": JT_CONFIG.customerCode,
-                "password": JT_CONFIG.password,
+                "customerCode": customerCode,
+                "password": password,
                 "txlogisticId": matuquan,
                 "productType": "EXPRESS",
                 "orderType": "1",
                 "serviceType": "1",
-                "partSign": is_partial_delivery,
+                "partSign": partSign,
                 "deliveryType": "1",
                 "isCallBeforeReturn": 1,
                 "totalQuantity": 1,
@@ -140,13 +150,13 @@ async function createOrderCore(username, input) {
                 "receiver": { "name": customer_name, "mobile": customer_phone, "prov": tinh, "city": huyen, "area": xa, "address": address },
                 "payType": "PP_PM",
                 "goodsType": "bm000010",
-                "goodsValue": cod.toString(),
-                "codMoney": cod.toString(),
-                "itemsValue": cod.toString(),
+                "goodsValue": goodsValue,
+                ...(hasCod ? { codMoney: codStr } : {}),
+                "itemsValue": goodsValue,
                 "remark": note,
                 "englishName": "none",
                 "packageInfo": { "weight": weight, "length": 10, "width": 10, "height": 10, "volume": "10" },
-                "items": [{ "itemName": product_name, "englishName": "None", "number": 1, "itemValue": cod }]
+                "items": [{ "itemName": product_name, "englishName": "None", "number": 1, "itemValue": String(goodsValue) }]
             });
 
             const digest = md5ToBase64(oderjson + pkey);
@@ -165,12 +175,22 @@ async function createOrderCore(username, input) {
 
             const body = response.data;
             if (body.msg === 'success') {
-                const sqlOrder = `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, newward, newprov, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
-                await db.promise().query(sqlOrder, [user.id, matuquan, provider, customer_name, customer_phone, address, product_name, cod, calculatedFee, weight, 'pending', body.data.billCode, cod, ward, district, province, body.data.sortLine, note, newward, newprov]);
+                const sqlOrder = `INSERT INTO orders (user_id, order_code, provider, customer_name, customer_phone, customer_address, product_name, price, internal_fee, weight, status, realjtbillcode, original_cod, jt_ward, jt_district, jt_prov, sortLine, note, newward, newprov, jt_account_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`;
+                await db.promise().query(sqlOrder, [user.id, matuquan, provider, customer_name, customer_phone, address, product_name, cod, calculatedFee, weight, 'pending', body.data.billCode, cod, ward, district, province, body.data.sortLine, note, newward, newprov, jtAccountId]);
                 //GetBillJT(matuquan);//tạm thời ko lấy bill lưu vào DB, bill nó quá nặng
                 //console.log(`✅${new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}: ${jt_shopname} Lên đơn J&T thành công: ${body.data.billCode}`);
                 return ({ success: true, message: "Lên đơn J&T thành công", order_code: body.data.billCode });
             } else {
+                if (/goodsValue/i.test(body.msg)) {
+                    console.warn('[J&T addOrder] Lỗi giá trị hàng', {
+                        txlogisticId: matuquan,
+                        goodsValue,
+                        itemsValue: goodsValue,
+                        itemValue: String(goodsValue),
+                        codMoney: hasCod ? codStr : undefined,
+                        partSign
+                    });
+                }
                 return ({ success: false, message: "J&T từ chối: " + body.msg });
             }
         } else if (provider === 'GHN') {

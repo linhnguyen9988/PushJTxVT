@@ -1,7 +1,7 @@
 const CryptoJS = require('crypto-js');
 const axios = require('axios');
 const { JT_STATUS_VN } = require('../config/constants');
-const { JT_CONFIG } = require('../config/env');
+const { getJtCredentialsForOrder } = require('./jtAccounts');
 const { db } = require('../lib/db');
 
 function jtTypeName(code, name) {
@@ -60,11 +60,10 @@ function md5ToBase64(input) {
 }
 
 async function GetBillJT(orderid) {
-    const pkey = JT_CONFIG.pkey;
-    const apiAccount = JT_CONFIG.apiAccount;
+    const { pkey, apiAccount, customerCode, password } = await getJtCredentialsForOrder(orderid);
     const oderjson = JSON.stringify({
-        "customerCode": JT_CONFIG.customerCode,
-        "password": JT_CONFIG.password,
+        "customerCode": customerCode,
+        "password": password,
         "txlogisticId": orderid
     });
     const digest = md5ToBase64(oderjson + pkey);
