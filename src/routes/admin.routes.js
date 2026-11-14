@@ -145,7 +145,24 @@ router.post('/admin/jt-accounts/default', isAdmin, require2FA, async (req, res) 
     }
 });
 
-router.get('/admin/dashboard', isAdmin, async (req, res) => {
+router.post('/admin/christmas-skin', isAdmin, require2FA, async (req, res) => {
+    if (typeof req.body.enabled !== 'boolean') return res.status(400).json({ success: false });
+    try {
+        await db.promise().query('INSERT INTO seasonal_theme (id, christmas_enabled) VALUES (1, ?) ON DUPLICATE KEY UPDATE christmas_enabled = VALUES(christmas_enabled)', [req.body.enabled ? 1 : 0]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Không lưu được skin Noel.' });
+    }
+});
+
+router.get('/admin/christmas-skin', isAdmin, async (req, res) => {
+    try {
+        const [rows] = await db.promise().query('SELECT christmas_enabled FROM seasonal_theme WHERE id = 1');
+        res.json({ enabled: Boolean(rows[0]?.christmas_enabled) });
+    } catch (error) { res.status(500).json({ message: 'Không tải được trạng thái skin Noel.' }); }
+});
+
+router.get('/admin/dashboard' , isAdmin, async (req, res) => {
     const search = req.query.search || '';
     const currentUser = req.app_user;
 

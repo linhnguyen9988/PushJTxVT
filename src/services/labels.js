@@ -25,6 +25,11 @@ function getLogoBase64() {
 
 getLogoBuffer();
 
+function maskCustomerPhone(phone) {
+    const digits = String(phone ?? '').replace(/\D/g, '');
+    return digits ? `******${digits.length > 4 ? digits.slice(-4) : ''}` : '';
+}
+
 async function renderLabelsToPdfBuffer(orders, user, showCod) {
     const size80mm = 226.77;
     const doc = new PDFDocument({ size: [size80mm, size80mm], margins: { top: 0, left: 0, right: 0, bottom: 0 } });
@@ -71,7 +76,7 @@ async function renderLabelsToPdfBuffer(orders, user, showCod) {
         doc.moveTo(5, 143).lineTo(221.77, 143).stroke();
         doc.font(fontPath).fontSize(9).text(`GỬI: ${user.jt_shopname || 'N/A'} - ${user.jt_sdt || ''}`, 10, 82);
         doc.moveDown(0.4);
-        doc.text(`NHẬN: ${order.customer_name} - ${order.customer_phone}`);
+        doc.text(`NHẬN: ${order.customer_name} - ${maskCustomerPhone(order.customer_phone)}`);
         doc.font(fontRegularPath).fontSize(8.5).text(order.customer_address, { width: 205, lineGap: 1 });
 
         const qrX = 160;
@@ -167,4 +172,4 @@ function generateFullHtml(content, isDesktop = false, showCod = 1) {
     </style></head><body>${content}${printScript}</body></html>`;
 }
 
-module.exports = { getLogoBase64, formatSortCode, generateFullHtml, renderLabelsToPdfBuffer, setPrintSkipHeaders, splitPrintableOrders };
+module.exports = { getLogoBase64, formatSortCode, generateFullHtml, maskCustomerPhone, renderLabelsToPdfBuffer, setPrintSkipHeaders, splitPrintableOrders };

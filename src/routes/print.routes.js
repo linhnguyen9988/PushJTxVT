@@ -4,7 +4,7 @@ const express = require('express');
 const { db } = require('../lib/db');
 const { isAuth } = require('../middleware/auth');
 const { queryOrdersByIds } = require('../services/orders');
-const { getLogoBase64, formatSortCode, generateFullHtml, renderLabelsToPdfBuffer, setPrintSkipHeaders, splitPrintableOrders } = require('../services/labels');
+const { getLogoBase64, formatSortCode, generateFullHtml, maskCustomerPhone, renderLabelsToPdfBuffer, setPrintSkipHeaders, splitPrintableOrders } = require('../services/labels');
 const { io } = require('../core/server');
 
 const router = express.Router();
@@ -103,9 +103,9 @@ router.post('/api/print-orders-multi', isAuth, async (req, res) => {
                         <div class="sort-item">${sort[2] || ''}</div>
                     </div>
                     <div class="section-addresses">
-                        <div><b>GỬI: ${user.jt_shopname || 'N/A'} - ${user.jt_sdt || ''}</b></div>
+                        <div><b>GỬI: ${user.jt_shopname || 'N/A'} - ${maskCustomerPhone(user.jt_sdt) || ''}</b></div>
                         <div class="receiver-info">
-                            <b>NHẬN: ${order.customer_name} - ${order.customer_phone}</b><br>
+                            <b>NHẬN: ${order.customer_name} - ${maskCustomerPhone(order.customer_phone)}</b><br>
                             ${order.customer_address}
                         </div>
                     </div>

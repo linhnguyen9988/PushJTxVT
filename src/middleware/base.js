@@ -31,6 +31,14 @@ app.use(session({
 app.use(flash());
 app.use(cors());
 app.use((req, res, next) => {
+    res.locals.christmasSkin = false;
+    if (req.path.startsWith('/admin') || req.path.startsWith('/api/')) return next();
+    db.query('SELECT christmas_enabled FROM seasonal_theme WHERE id = 1', (error, rows) => {
+        res.locals.christmasSkin = !error && Boolean(rows?.[0]?.christmas_enabled);
+        next();
+    });
+});
+app.use((req, res, next) => {
     res.locals.skinColor = DEFAULT_SKIN;
     if (!req.session.skinCsrf) req.session.skinCsrf = randomBytes(32).toString('hex');
     res.locals.skinCsrf = req.session.skinCsrf;

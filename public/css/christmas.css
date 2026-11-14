@@ -1,0 +1,78 @@
+html.christmas { --brand-500:#ae343b!important; --brand-600:#922d34!important; --brand-700:#71252b!important; --brand-50:#fcf0ed!important; --brand-100:#f7ded9!important; --brand-200:#e4b4aa!important; --bs-primary-rgb:174,52,59!important; --surface:#f8f6ef; --surface-card:#fffdf7; --surface-border:#e3dfd0; }
+html.christmas[data-bs-theme="dark"] { --brand-500:#ed969b!important; --brand-600:#f3b2b5!important; --brand-700:#fbd6d8!important; --brand-50:#39272b!important; --surface:#12251f; --surface-card:#1c3029; --surface-border:#40554a; }
+html.christmas body { background:radial-gradient(circle at 8% 0%,#d9e7db66,transparent 40%),var(--surface); }
+html.christmas .navbar.ui-header { background:#173e32!important; border-color:#b99759; }
+html.christmas .navbar.ui-header::before { background:repeating-linear-gradient(110deg,#f4e9cf 0 14px,#ae343b 14px 28px); height:4px; }
+html.christmas .ui-dashboard-hero { background:linear-gradient(115deg,#173e32,#285d46);border-color:#b99759; }
+html.christmas .btn-primary,html.christmas .ui-header .navbar-nav .nav-link.btn-primary { background:#ae343b!important;color:#fff!important;border-color:#922d34!important; }
+html.christmas .btn-primary:hover { background:#922d34!important; }
+html.christmas .card,html.christmas .adm-card { border-color:var(--surface-border)!important; }
+.christmas-stickers { position:fixed;bottom:22px;left:18px;right:auto;display:flex;align-items:end;gap:4px;z-index:5;pointer-events:none;filter:drop-shadow(0 3px 1px #fff) drop-shadow(0 4px 6px #173e3240); }
+.christmas-stickers span { font-size:38px;transform:rotate(-9deg); }
+.christmas-stickers span:nth-child(2) { font-size:62px;transform:rotate(6deg); }
+@media(max-width:767px){
+    .christmas-stickers{bottom:calc(80px + env(safe-area-inset-bottom, 0px));left:max(12px, env(safe-area-inset-left, 0px));right:auto;opacity:.85}
+    .christmas-stickers span{font-size:23px}
+    .christmas-stickers span:nth-child(2){font-size:35px}
+    html.christmas body::after {
+        content:"";position:fixed;inset:0;z-index:9990;pointer-events:none;
+        border:5px solid transparent;
+        border-image:repeating-linear-gradient(135deg,#ae343b 0 10px,#f4e9cf 10px 20px) 5;
+    }
+}
+@media print{html.christmas body::after{display:none!important}}
+@media print{.christmas-stickers{display:none!important}}
+
+/* Small botanical compositions, varied by page, kept clear of table content. */
+html.christmas .noel-garland {height:38px;width:150px;max-width:70%;margin:2px 14px 0;pointer-events:none;background-position:center;background-size:contain;background-repeat:no-repeat;}
+html.christmas .noel-arrangement-0 {background-image:url('/img/noel-arrangement-0.svg');}
+html.christmas .noel-arrangement-1 {background-image:url('/img/noel-arrangement-1.svg');margin-left:auto;}
+html.christmas .noel-arrangement-2 {background-image:url('/img/noel-arrangement-2.svg');}
+html.christmas .noel-garland + .table-responsive {border-top:1px solid #c8b585;border-radius:10px!important;}
+html.christmas .noel-main {position:relative;background:linear-gradient(135deg,#b83d48,#8e2837)!important;border-color:#8e2837!important;color:#fff7e7!important;box-shadow:0 3px 8px #842d3422;}
+html.christmas .noel-main i {color:#f5d999;}
+/* The same shallow snow ridge spans every button, above the label area. */
+html.christmas .noel-snow-button {position:relative;}
+html.christmas .noel-snow-cap {position:absolute;pointer-events:none;top:-6px;left:0;width:100%;height:8px;background:url('/img/noel-button-snow.svg') center / 100% 100% no-repeat;filter:drop-shadow(0 1px 1px #24473920);}
+/* Snow rests above the card rim, with only its lower edge touching the border. */
+html.christmas :is(.card, .adm-card, .order-card) {position:relative;overflow:visible!important;}
+html.christmas .ui-dashboard-metric::before {border-radius:var(--radius-md) 0 0 var(--radius-md);}
+html.christmas :is(.card, .adm-card, .order-card)::after {
+    content:"";position:absolute;top:-9px;left:8px;right:8px;height:12px;
+    background:url('/img/noel-button-snow.svg') center / 100% 100% no-repeat;
+    filter:drop-shadow(0 2px 1px #789fa34d);pointer-events:none;z-index:2;
+}
+html.christmas .btn.noel-secondary {background:#f5f8f1!important;border:1px solid #5b7d64!important;color:#28563f!important;box-shadow:none!important;}
+html.christmas .btn.noel-secondary:hover {background:#e4eddf!important;}
+html.christmas[data-bs-theme="dark"] .btn.noel-secondary {background:#203e30!important;color:#e2ecd8!important;}
+@media(max-width:767px){html.christmas .noel-garland{height:32px;width:128px;margin-top:0;}}
+@media print{.noel-garland,.noel-snow-cap{display:none!important}}
+@media print{html.christmas :is(.card, .adm-card, .order-card)::after{display:none!important}}
+
+/* Keep the existing live order code and print/new-order handlers over the illustration. */
+html.christmas #success-popup-overlay {padding:16px 8px;overflow:auto;background:rgba(12,18,15,.78)!important;}
+html.christmas .order-success-content {
+    position:relative;container-type:inline-size;width:min(640px,96vw,calc((100svh - 32px) * .8));
+    min-width:300px;max-width:none!important;aspect-ratio:1122 / 1402;
+    padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important;
+    flex-shrink:0;margin:auto;color:#542b0b;
+}
+.noel-success-art {display:block;width:100%;height:auto;pointer-events:none;}
+html.christmas .order-success-check {display:none;}
+html.christmas #order-success-title {position:absolute;top:5.3%;left:14%;width:72%;margin:0;line-height:1;}
+html.christmas .noel-banner-copy {display:block;width:100%;height:auto;overflow:visible;}
+html.christmas .noel-banner-heading {font:700 57px Arimo,sans-serif;fill:#5d300b;paint-order:stroke;stroke:#ffe8aa;stroke-width:1;}
+html.christmas .noel-banner-caption {font:400 38px Arimo,sans-serif;fill:#69401d;}
+html.christmas .order-success-subtitle {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
+html.christmas .order-success-code-wrap {position:absolute;left:79.2%;top:60.5%;width:34%;transform:translate(-50%,-50%) rotate(43deg);padding:0!important;margin:0!important;background:transparent!important;text-align:center;}
+html.christmas #success-order-code {font-size:4.8cqw;color:#542b0b!important;line-height:1.1;white-space:nowrap;letter-spacing:-.04em;}
+html.christmas .order-success-actions {position:absolute;left:14.8%;top:51.2%;width:33%;gap:3px!important;transform:translateY(-50%) rotate(5deg);align-items:stretch;}
+html.christmas .order-success-actions .btn {padding:5px 2px!important;min-height:40px;min-width:0;font-size:clamp(8px,1.85cqw,12px);line-height:1.15;border-radius:7px;box-shadow:0 2px 3px #38160066!important;border:1px solid #7c461d!important;white-space:nowrap;}
+html.christmas .order-success-actions .btn i {display:block;margin:0 0 3px!important;}
+html.christmas .order-success-actions #btn-print-now {background:linear-gradient(#ffe6a6,#c78a35)!important;color:#4d2c10!important;}
+html.christmas .order-success-actions .btn-success {background:linear-gradient(#328252,#18532c)!important;color:white!important;}
+html.christmas .order-success-actions .btn-danger {background:linear-gradient(#d54d48,#a52026)!important;color:white!important;}
+html.christmas .order-success-actions .noel-snow-cap {display:none;}
+@media(max-height:430px){html.christmas #success-popup-overlay{align-items:flex-start!important;}}
+
+

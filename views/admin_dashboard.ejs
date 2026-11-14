@@ -477,6 +477,32 @@
       </div>
 
       <%- include('partials/admin_jt_accounts') %>
+      <section class="adm-card"><div class="adm-card-header"><h6>Skin Noel</h6></div><div class="adm-card-body">
+        <label class="d-flex gap-3 align-items-center"><input id="christmas-switch" type="checkbox" disabled onchange="setChristmasSkin(this)"> Bật skin Noel cho các trang người dùng</label>
+        <p id="christmas-status" class="small mt-2" role="status">Đang tải…</p>
+      </div></section>
+      <script>
+        fetch('/admin/christmas-skin').then(async response => {
+          if (!response.ok) throw new Error('Không tải được trạng thái');
+          const data = await response.json();
+          const toggle = document.getElementById('christmas-switch');
+          toggle.checked = data.enabled; toggle.disabled = false;
+          document.getElementById('christmas-status').textContent = '';
+        }).catch(error => { document.getElementById('christmas-status').textContent = error.message; });
+        async function setChristmasSkin(toggle) {
+          const enabled = toggle.checked; toggle.disabled = true;
+          const status = document.getElementById('christmas-status');
+          try {
+            const totpCode = await open2FAModal();
+            if (!totpCode) { toggle.checked = !enabled; return; }
+            const response = await fetch('/admin/christmas-skin', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({enabled,totpCode}) });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Không lưu được skin Noel.');
+            status.textContent = 'Đã lưu. Skin áp dụng khi tải lại các trang người dùng.';
+          } catch(error) { toggle.checked = !enabled; status.textContent = error.message; }
+          finally { toggle.disabled = false; }
+        }
+      </script>
 
       <div class="adm-card">
         <div class="adm-card-header">

@@ -1093,15 +1093,23 @@ function getBadge(status) {
 
         <div id="success-popup-overlay"
             style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000000; justify-content: center; align-items: center;">
-            <div class="custom-popup-content shadow-lg text-center p-4"
+            <div class="custom-popup-content order-success-content shadow-lg text-center p-4" role="dialog" aria-modal="true" aria-labelledby="order-success-title"
                 style="max-width: 400px; border-radius: var(--radius-lg); background: var(--surface-card);">
-                <div class="mb-3"><i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i></div>
-                <h4 class="fw-bold text-dark">Lên Đơn Thành Công!</h4>
-                <p class="text-muted">Mã vận đơn của bạn là:</p>
-                <div class="bg-light p-3 rounded-3 mb-4">
+                <% if (locals.christmasSkin) { %><img class="noel-success-art" src="/img/noel-order-success.png" alt="" aria-hidden="true"><% } %>
+                <div class="mb-3 order-success-check"><i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i></div>
+                <h4 class="fw-bold text-dark" id="order-success-title"><% if (locals.christmasSkin) { %>
+                    <span class="visually-hidden">Lên Đơn Thành Công!</span>
+                    <svg viewBox="0 0 800 180" aria-hidden="true" class="noel-banner-copy">
+                        <defs><path id="noel-title-arc" d="M15 100 Q400 28 785 100"/><path id="noel-subtitle-arc" d="M15 161 Q400 111 785 161"/></defs>
+                        <text class="noel-banner-heading"><textPath href="#noel-title-arc" startOffset="50%" text-anchor="middle">Lên Đơn Thành Công!</textPath></text>
+                        <text class="noel-banner-caption"><textPath href="#noel-subtitle-arc" startOffset="50%" text-anchor="middle">Mã vận đơn của bạn là:</textPath></text>
+                    </svg>
+                <% } else { %>Lên Đơn Thành Công!<% } %></h4>
+                <p class="text-muted order-success-subtitle">Mã vận đơn của bạn là:</p>
+                <div class="bg-light p-3 rounded-3 mb-4 order-success-code-wrap">
                     <h3 class="fw-bold text-primary mb-0" id="success-order-code">---------</h3>
                 </div>
-                <div class="d-flex justify-content-center gap-2">
+                <div class="d-flex justify-content-center gap-2 order-success-actions">
                     <button type="button" id="btn-print-now" class="btn btn-primary fw-bold px-3" style="flex: 1;">
                     <i class="fas fa-print me-1"></i> In Đơn
                     </button>

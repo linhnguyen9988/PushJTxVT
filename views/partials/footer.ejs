@@ -160,7 +160,9 @@
         html += '<div class="print-card">';
         html += '  <div class="header-area"><div><b style="font-size:20px">' + data.provider + '</b><br><small>Shop: ' + data.shop_name + '</small></div><img src="' + qrBase64 + '" width="65" height="65"></div>';
         html += '  <div style="flex:1; display:flex; gap:10px">';
-        html += '    <div style="flex:7; font-size:15px"><b>' + data.customer_name + '</b><br><b>' + data.customer_phone + '</b><br>' + data.customer_address + '</div>';
+        const digits = String(data.customer_phone ?? '').replace(/\D/g, '');
+        const maskedPhone = digits ? '***' + (digits.length > 4 ? digits.slice(-4) : '') : '';
+        html += '    <div style="flex:7; font-size:15px"><b>' + data.customer_name + '</b><br><b>' + maskedPhone + '</b><br>' + data.customer_address + '</div>';
         html += '    <div style="flex:3; border:2px solid #000; display:flex; flex-direction:column; justify-content:center; text-align:center; height:fit-content; align-self:center; padding:5px 0;"><b>THU HỘ</b><br><b style="font-size:20px">' + formattedPrice + '</b></div>';
         html += '  </div>';
         html += '  <div class="barcode-area"><svg id="bc"></svg><div style="font-weight:bold; font-size:14px; margin-top:5px; letter-spacing:2px;">' + data.order_code + '</div></div>';

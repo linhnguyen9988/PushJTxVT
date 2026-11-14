@@ -3,7 +3,7 @@ const { io } = require('../core/server');
 const { db } = require('../lib/db');
 
 io.on("connection", (socket) => {
-    console.log("Thiết bị kết nối:", socket.id);
+    //console.log("Thiết bị kết nối:", socket.id);
 
     socket.on("login-printer", (credentials) => {
         const { username, password } = credentials;
