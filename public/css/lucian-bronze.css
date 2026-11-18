@@ -271,6 +271,39 @@ input[type="date"] { color-scheme: light; }
 
 /* Modals, mobile navigation, theme support. */
 .modal-content,.custom-popup-content,.bottom-sheet .modal-content { background:var(--surface-card); color:var(--ink-900); border:1px solid var(--surface-border); border-radius:18px; box-shadow:var(--shadow-lg); }
+/* Override legacy inline white backgrounds and Bootstrap's fixed dark text.
+   The Christmas success illustration keeps its transparent canvas. */
+html[data-bs-theme="dark"] :is(.modal-content, .custom-popup-content):not(.order-success-content),
+html[data-bs-theme="dark"]:not(.christmas) .order-success-content,
+html[data-bs-theme="dark"] .swal2-popup {
+  background:var(--surface-card) !important;
+  color:var(--ink-900) !important;
+  border-color:var(--surface-border) !important;
+}
+html[data-bs-theme="dark"] :is(.modal-content, .custom-popup-content) :is(.text-dark, .text-black),
+html[data-bs-theme="dark"] :is(.swal2-title, .swal2-html-container, .swal2-content) {
+  color:var(--ink-900) !important;
+}
+html[data-bs-theme="dark"] :is(.modal-content, .custom-popup-content, .swal2-popup) .text-muted {
+  color:var(--ink-700) !important;
+}
+html[data-bs-theme="dark"] :is(.modal-content, .custom-popup-content) :is(.bg-light, .bg-white):not(.btn),
+html[data-bs-theme="dark"] :is(.swal2-input, .swal2-textarea, .swal2-select, .swal2-validation-message) {
+  background:var(--surface) !important;
+  color:var(--ink-900) !important;
+  border-color:var(--surface-border) !important;
+}
+html[data-bs-theme="dark"] :is(.modal-content, .custom-popup-content) :is(.modal-header, .modal-footer) {
+  border-color:var(--surface-border) !important;
+}
+html[data-bs-theme="dark"] :is(.modal-content, .custom-popup-content) :is(.btn-light, .btn-dark) {
+  background:var(--ink-100) !important;
+  color:var(--ink-900) !important;
+  border-color:var(--ink-300) !important;
+}
+html[data-bs-theme="dark"] :is(.modal-content, .custom-popup-content) :is(.btn-light, .btn-dark):hover {
+  background:var(--surface-border) !important;
+}
 .modal-header,.modal-footer { border-color:var(--surface-border); }
 .dropdown-menu { background:var(--surface-card); border-color:var(--surface-border); box-shadow:var(--shadow-md); }
 .bottom-nav { height:70px; border-top:1px solid var(--brand-200); box-shadow:0 -8px 27px rgba(65,42,16,.10); padding:8px 4px env(safe-area-inset-bottom); }

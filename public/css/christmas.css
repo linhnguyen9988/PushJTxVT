@@ -65,6 +65,10 @@ html.christmas .noel-banner-heading {font:700 57px Arimo,sans-serif;fill:#5d300b
 html.christmas .noel-banner-caption {font:400 38px Arimo,sans-serif;fill:#69401d;}
 html.christmas .order-success-subtitle {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);}
 html.christmas .order-success-code-wrap {position:absolute;left:79.2%;top:60.5%;width:34%;transform:translate(-50%,-50%) rotate(43deg);padding:0!important;margin:0!important;background:transparent!important;text-align:center;}
+/* The code is printed on the illustrated tag, not a dark-mode modal panel. */
+html.christmas #success-popup-overlay .order-success-code-wrap {
+    background:transparent!important;border:0!important;box-shadow:none!important;
+}
 html.christmas #success-order-code {font-size:4.8cqw;color:#542b0b!important;line-height:1.1;white-space:nowrap;letter-spacing:-.04em;}
 html.christmas .order-success-actions {position:absolute;left:14.8%;top:51.2%;width:33%;gap:3px!important;transform:translateY(-50%) rotate(5deg);align-items:stretch;}
 html.christmas .order-success-actions .btn {padding:5px 2px!important;min-height:40px;min-width:0;font-size:clamp(8px,1.85cqw,12px);line-height:1.15;border-radius:7px;box-shadow:0 2px 3px #38160066!important;border:1px solid #7c461d!important;white-space:nowrap;}

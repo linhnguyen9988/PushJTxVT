@@ -30,6 +30,14 @@ app.use(session({
 }));
 app.use(flash());
 app.use(cors());
+// Public read-only flag: no account data, and never cache the admin switch.
+app.get('/seasonal-theme-status', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    db.query('SELECT christmas_enabled FROM seasonal_theme WHERE id = 1', (error, rows) => {
+        if (error) return res.status(503).json({ error: 'Theme unavailable' });
+        res.json({ christmasEnabled: Number(rows?.[0]?.christmas_enabled) === 1 });
+    });
+});
 app.use((req, res, next) => {
     res.locals.christmasSkin = false;
     if (req.path.startsWith('/admin') || req.path.startsWith('/api/')) return next();

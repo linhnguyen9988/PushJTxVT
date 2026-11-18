@@ -871,10 +871,11 @@
     <script>
         (function () {
             var sw = document.getElementById('toggleDarkMode');
-            var current = localStorage.getItem('tvship-theme') === 'dark';
+            var current = document.documentElement.getAttribute('data-bs-theme') === 'dark';
             sw.checked = current;
 
             sw.addEventListener('change', function () {
+                if (document.documentElement.classList.contains('christmas')) { this.checked = true; return; }
                 if (this.checked) {
                     document.documentElement.setAttribute('data-bs-theme', 'dark');
                     localStorage.setItem('tvship-theme', 'dark');

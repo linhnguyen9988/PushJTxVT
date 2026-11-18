@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+function decorateChristmas() {
     if (!document.documentElement.classList.contains('christmas')) return;
     const pageVariant = Array.from(location.pathname).reduce((sum, char) => sum + char.charCodeAt(0), 0);
     document.querySelectorAll('table').forEach((table, index) => {
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
         frame.before(garland);
     });
     document.querySelectorAll('.btn').forEach(button => {
-        if (button.matches('.btn-close, .btn-link')) return;
+        if (button.matches('.btn-close, .btn-link') || button.querySelector('.noel-snow-cap')) return;
         const label = button.textContent.trim();
         const isCreate = /thêm|tạo|đăng ký|đăng nhập|xác nhận|lưu/i.test(label) || button.querySelector('.fa-plus, .fa-plus-circle, .fa-circle-plus');
         if (!isCreate) {
@@ -34,4 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
         icon.setAttribute('aria-hidden', 'true');
         button.prepend(icon);
     });
-});
+}
+document.addEventListener('DOMContentLoaded', decorateChristmas);
+document.addEventListener('tvship:seasonal-change', decorateChristmas);

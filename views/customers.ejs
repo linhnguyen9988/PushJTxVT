@@ -1,4 +1,5 @@
 <%- include('partials/header') %>
+<script defer src="/js/customer-live.js"></script>
 <%- include('partials/admin_theme') %>
 
     <div class="container-fluid px-md-4 py-2">
@@ -32,7 +33,7 @@
             </div>
             <% } %>
 
-                <div class="card shadow-sm border-0 rounded-3 desktop-view">
+                <div id="customer-list-desktop" class="card shadow-sm border-0 rounded-3 desktop-view">
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead>
@@ -97,7 +98,7 @@
                     </div>
                 </div>
 
-                <div class="mobile-view">
+                <div id="customer-list-mobile" class="mobile-view">
                     <% if (customers && customers.length> 0) { %>
                         <% customers.forEach(c=> { %>
                             <div class="customer-card position-relative">
@@ -731,10 +732,41 @@
             document.getElementById('customer-popup-overlay').style.display = 'none';
         }
 
+        // Reuse the server-rendered list so normalized addresses, tags, quick-order
+        // data, search results and the latest-50 limit all stay consistent.
+        async function refreshCustomerLists() {
+            try {
+                const response = await fetch(window.location.pathname + window.location.search, {
+                    cache: 'no-store', credentials: 'same-origin'
+                });
+                if (!response.ok || response.redirected) throw new Error('Không tải được danh sách');
+                const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+                const ids = ['customer-list-desktop', 'customer-list-mobile'];
+                const replacements = ids.map(id => {
+                    const current = document.getElementById(id);
+                    const next = page.getElementById(id);
+                    if (!current || !next) throw new Error('Thiếu danh sách khách hàng');
+                    return { current, next };
+                });
+                replacements.forEach(({ current, next }) => {
+                    current.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(button => {
+                        bootstrap.Dropdown.getInstance(button)?.dispose();
+                    });
+                    current.replaceWith(document.importNode(next, true));
+                });
+                document.dispatchEvent(new Event('tvship:seasonal-change'));
+                return true;
+            } catch (error) {
+                console.error('Không cập nhật được danh sách khách hàng:', error);
+                return false;
+            }
+        }
+
         document.getElementById('customerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const btn = document.getElementById('btnSave');
+            if (btn.disabled) return;
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
 
@@ -757,11 +789,11 @@
                 const result = await res.json();
 
                 if (result.success) {
+                    closePopup();
+                    window.CustomerLive.refresh();
                     btn.disabled = false;
                     btn.innerHTML = 'Lưu thông tin';
-                    closePopup();
-                    showNotice("Thành công", isEditMode ? `Cập nhật thành công: ${result.xa}, ${result.huyen}, ${result.tinh}` : `Đã thêm khách hàng với địa chỉ: ${result.xa}, ${result.huyen}, ${result.tinh}`, "success");
-                    window.shouldReload = true;
+                    window.CustomerLive.toast(isEditMode ? 'Đã cập nhật khách hàng' : 'Đã thêm khách hàng');
                 } else if (result.needManual) {
                     const v = result.viettel || {};
                     clearManualRegion();
@@ -793,19 +825,26 @@
 
         function closeConfirm() { document.getElementById('confirm-popup-overlay').style.display = 'none'; }
 
+        let deletingCustomer = false;
         async function executeDelete() {
+            if (deletingCustomer) return;
+            deletingCustomer = true;
+            const customerId = pendingDeleteId;
             closeConfirm();
             try {
-                const res = await fetch(`/customers/delete/${pendingDeleteId}`, { method: 'POST' });
+                const res = await fetch(`/customers/delete/${encodeURIComponent(customerId)}`, { method: 'POST' });
+                if (!res.ok) throw new Error('Không xóa được khách hàng');
                 const result = await res.json();
                 if (result.success) {
-                    showNotice("Thành công", "Đã xóa khách hàng.", "success");
-                    window.shouldReload = true;
+                    window.CustomerLive.refresh();
+                    window.CustomerLive.toast('Đã xóa khách hàng');
                 } else {
                     showNotice("Lỗi", result.message, "error");
                 }
             } catch (err) {
                 showNotice("Lỗi", "Lỗi server", "error");
+            } finally {
+                deletingCustomer = false;
             }
         }
         document.addEventListener('click', function (e) {

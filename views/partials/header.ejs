@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi" class="<%= locals.authArtwork ? 'auth-artwork' : '' %> <%= locals.christmasSkin ? 'christmas' : '' %>">
+<html <%- locals.christmasSkin ? 'data-bs-theme="dark"' : '' %> lang="vi" class="<%= locals.authArtwork ? 'auth-artwork' : '' %> <%= locals.christmasSkin ? 'christmas' : '' %>">
 
 <head>
     <meta charset="UTF-8">
@@ -15,6 +15,7 @@
     <script>
         (function () {
             try {
+                if (document.documentElement.classList.contains('christmas')) return;
                 var t = localStorage.getItem('tvship-theme');
                 if (t === 'dark') document.documentElement.setAttribute('data-bs-theme', 'dark');
             } catch (e) {}
@@ -44,7 +45,8 @@
     <script type="text/javascript" src="/js/html5-qrcode.min.js"></script>
     <script type="text/javascript" src="/js/qrcode.js"></script>
     <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
-<% if (locals.christmasSkin) { %><link rel="stylesheet" href="/css/christmas.css"><script defer src="/js/christmas.js"></script><% } %>
+<link rel="stylesheet" href="/css/christmas.css"><script defer src="/js/christmas.js"></script>
+<script defer src="/js/seasonal-mode.js"></script>
 </head>
 <script>//var vConsole = new VConsole();</script>
 
@@ -128,6 +130,7 @@
             if (!toggle) return;
             function sync() { toggle.innerHTML = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? '<i class="fas fa-sun" aria-hidden="true"></i>' : '<i class="fas fa-moon" aria-hidden="true"></i>'; }
             toggle.addEventListener('click', function() {
+                if (document.documentElement.classList.contains('christmas')) return;
                 var dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
                 if (dark) document.documentElement.removeAttribute('data-bs-theme');
                 else document.documentElement.setAttribute('data-bs-theme', 'dark');

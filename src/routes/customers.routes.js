@@ -12,7 +12,9 @@ function pickManualRegion(body) {
     return ok ? { prov: manual_prov, district: manual_district, ward: manual_ward } : null;
 }
 
+const { subscribeCustomers, notifyCustomers } = require('../services/customerEvents');
 const router = express.Router();
+router.get('/api/customers/events', isAuth, (req, res) => subscribeCustomers(req, res));
 
 router.get('/api/customers', isAuth, async (req, res) => {
     const username = req.app_user;
@@ -137,8 +139,10 @@ router.post('/customers/edit', isAuth, async (req, res) => {
             const sqlUpdate = `
                 UPDATE customers 
                 SET name = ?, phone = ?, address = ?, prov = ?, district = ?, ward = ?, newward = ?, newprov = ?, tag = ?  
-                WHERE id = ?`;
-            await db.promise().query(sqlUpdate, [name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag, id]);
+                WHERE id = ? AND user_id = (SELECT id FROM users WHERE username = ?)`;
+            const [updated] = await db.promise().query(sqlUpdate, [name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag, id, username]);
+            if (!updated.affectedRows) return res.json({ success: false, message: "Không tìm thấy khách hàng của bạn." });
+            notifyCustomers(username);
             createLog(`Sửa thông tin khách hàng: ${name} (chọn vùng J&T thủ công)`, username);
             return res.json({
                 success: true,
@@ -223,8 +227,10 @@ router.post('/customers/edit', isAuth, async (req, res) => {
             const sqlUpdate = `
                 UPDATE customers 
                 SET name = ?, phone = ?, address = ?, prov = ?, district = ?, ward = ?, newward = ?, newprov = ?, tag = ?  
-                WHERE id = ?`;
-            await db.promise().query(sqlUpdate, [name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag, id]);
+                WHERE id = ? AND user_id = (SELECT id FROM users WHERE username = ?)`;
+            const [updated] = await db.promise().query(sqlUpdate, [name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag, id, username]);
+            if (!updated.affectedRows) return res.json({ success: false, message: "Không tìm thấy khách hàng của bạn." });
+            notifyCustomers(username);
 
             createLog(`Sửa thông tin khách hàng: ${name}`, username);
 
@@ -276,6 +282,7 @@ router.post('/customers/add', isAuth, async (req, res) => {
                 INSERT INTO customers (user_id, name, phone, address, prov, district, ward, newward, newprov, tag) 
                 VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
             await db.promise().query(sqlInsert, [username, name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag]);
+            notifyCustomers(username);
             createLog(`Đã thêm khách hàng mới: ${name} (chọn vùng J&T thủ công)`, username);
             return res.json({
                 success: true,
@@ -361,6 +368,7 @@ router.post('/customers/add', isAuth, async (req, res) => {
                 VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
             await db.promise().query(sqlInsert, [username, name, phone, address, jt.prov, jt.district, jt.ward, jt.newward, jt.newprov, safeTag]);
+            notifyCustomers(username);
 
             createLog(`Đã thêm khách hàng mới: ${name}`, username);
 
@@ -393,8 +401,10 @@ router.post('/customers/delete/:id', isAuth, async (req, res) => {
     const customerId = req.params.id;
 
     try {
-        const sql = `DELETE FROM customers WHERE id = ?`;
-        await db.promise().query(sql, [customerId]);
+        const sql = `DELETE FROM customers WHERE id = ? AND user_id = (SELECT id FROM users WHERE username = ?)`;
+        const [deleted] = await db.promise().query(sql, [customerId, req.app_user]);
+        if (!deleted.affectedRows) return res.json({ success: false, message: "Không tìm thấy khách hàng của bạn." });
+        notifyCustomers(req.app_user);
 
         res.json({ success: true, message: "Đã xóa khách hàng thành công!" });
     } catch (err) {
